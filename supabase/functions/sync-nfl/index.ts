@@ -59,7 +59,12 @@ function roundStatus(startDate: string, endDate: string, events: EspnEvent[], no
 }
 
 async function fetchJson(url: string) {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: {
+      accept: "application/json",
+      "user-agent": "survivor-pickem/1.0 (+https://priormi.github.io/survivor-pickem/)"
+    }
+  });
   if (!response.ok) throw new Error(`ESPN returned ${response.status} for ${url}`);
   return await response.json();
 }
@@ -70,7 +75,19 @@ async function fetchWeek(week: number) {
     seasontype: String(REGULAR_SEASON_TYPE),
     week: String(week)
   });
-  return await fetchJson(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?${params}`);
+  const path = `/apis/site/v2/sports/football/nfl/scoreboard?${params}`;
+  const hosts = ["https://site.web.api.espn.com", "https://site.api.espn.com"];
+  const errors: string[] = [];
+
+  for (const host of hosts) {
+    try {
+      return await fetchJson(`${host}${path}`);
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  throw new Error(errors.join("; "));
 }
 
 function regularSeasonEntries(data: any): EspnCalendarEntry[] {
