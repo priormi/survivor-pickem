@@ -2,6 +2,11 @@ name: Sync NFL
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/sync-nfl/**"
+      - ".github/workflows/sync-nfl.yml"
   schedule:
     - cron: "*/15 * * * 0,1,4"
     - cron: "0 */6 * * 2,3,5,6"
