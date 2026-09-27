@@ -58,6 +58,17 @@ export interface CurrentRound {
   expectedPickCount: number;
 }
 
+export interface DashboardPickHistoryItem {
+  id: string;
+  roundId: string;
+  roundName: string;
+  roundSequence: number;
+  result: PickResult;
+  submittedAt: string;
+  team: Team | null;
+  visible: boolean;
+}
+
 export interface DashboardPlayer {
   id: string;
   playerId: string;
@@ -67,6 +78,7 @@ export interface DashboardPlayer {
   pickSubmitted: boolean;
   pickVisible: boolean;
   pickTeam: Team | null;
+  pickHistory: DashboardPickHistoryItem[];
 }
 
 export interface DashboardResponse {

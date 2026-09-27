@@ -55,6 +55,16 @@ Deno.serve(async (request) => {
 
   if (picksError) return apiError("PICKS_LOOKUP_FAILED", picksError.message, 500);
 
+  const { data: pickHistory, error: pickHistoryError } = seasonPlayerIds.length
+    ? await supabase
+        .from("picks")
+        .select("id, season_player_id, round_id, pick_result, submitted_at, team:teams(id, abbreviation, city, name), round:rounds(id, display_name, sequence_number)")
+        .in("season_player_id", seasonPlayerIds)
+        .order("submitted_at", { ascending: true })
+    : { data: [], error: null };
+
+  if (pickHistoryError) return apiError("PICK_HISTORY_LOOKUP_FAILED", pickHistoryError.message, 500);
+
   const pickBySeasonPlayer = new Map((picks ?? []).map((pick) => [pick.season_player_id, pick]));
   const isLocked = new Date(round.deadline_at).getTime() <= Date.now() || round.status !== "OPEN";
   const activeSeasonPlayers = (seasonPlayers ?? []).filter((seasonPlayer) => seasonPlayer.status === "ACTIVE");
@@ -63,12 +73,35 @@ Deno.serve(async (request) => {
     activeSeasonPlayers.length > 0 && submittedActivePickCount === activeSeasonPlayers.length;
   const revealAllPicks = allActivePlayersPicked;
 
+  const historyBySeasonPlayer = new Map<string, any[]>();
+  for (const pick of pickHistory ?? []) {
+    const existing = historyBySeasonPlayer.get(pick.season_player_id) ?? [];
+    existing.push(pick);
+    historyBySeasonPlayer.set(pick.season_player_id, existing);
+  }
+
   const players = (seasonPlayers ?? []).map((seasonPlayer) => {
     const pick = pickBySeasonPlayer.get(seasonPlayer.id);
     const playerRecord = Array.isArray(seasonPlayer.player) ? seasonPlayer.player[0] : seasonPlayer.player;
     const rawTeam = Array.isArray(pick?.team) ? pick?.team[0] : pick?.team;
     const canSeePick = revealAllPicks || playerRecord?.id === player.id;
     const team = rawTeam && canSeePick ? rawTeam : null;
+    const history = (historyBySeasonPlayer.get(seasonPlayer.id) ?? []).map((historyPick) => {
+      const historyTeam = Array.isArray(historyPick.team) ? historyPick.team[0] : historyPick.team;
+      const historyRound = Array.isArray(historyPick.round) ? historyPick.round[0] : historyPick.round;
+      const visible = historyPick.round_id !== round.id || revealAllPicks || playerRecord?.id === player.id;
+
+      return {
+        id: historyPick.id,
+        roundId: historyPick.round_id,
+        roundName: historyRound?.display_name ?? "Round",
+        roundSequence: historyRound?.sequence_number ?? 0,
+        result: historyPick.pick_result,
+        submittedAt: historyPick.submitted_at,
+        team: visible ? historyTeam ?? null : null,
+        visible
+      };
+    }).sort((a, b) => a.roundSequence - b.roundSequence);
 
     return {
       id: seasonPlayer.id,
@@ -78,7 +111,8 @@ Deno.serve(async (request) => {
       status: seasonPlayer.status,
       pickSubmitted: Boolean(pick),
       pickTeam: team,
-      pickVisible: Boolean(team)
+      pickVisible: Boolean(team),
+      pickHistory: history
     };
   });
 
