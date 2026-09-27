@@ -185,7 +185,7 @@ function createHarness() {
 }
 
 async function login(page: Page) {
-  await page.goto("/");
+  await page.goto("./");
   await page.getByLabel("Player").selectOption("Mike");
   await page.getByLabel("PIN").fill("1234");
   await page.getByRole("button", { name: "Sign In" }).click();
@@ -193,7 +193,7 @@ async function login(page: Page) {
 }
 
 async function openPickPage(page: Page) {
-  await page.goto("/pick");
+  await page.getByRole("link", { name: "Pick", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Make Pick" })).toBeVisible();
 }
 
