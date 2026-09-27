@@ -2,9 +2,9 @@ import { formatCentralDateTime } from "../utils/dates";
 
 export function Countdown({ deadlineAt }: { deadlineAt: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Picks Lock</p>
-      <p className="text-xl font-bold">{formatCentralDateTime(deadlineAt)}</p>
+    <div className="inline-block rounded-md border border-slate-200 bg-white px-3 py-2">
+      <p className="text-[0.65rem] font-bold uppercase text-slate-500">Picks Lock</p>
+      <p className="text-sm font-bold leading-tight">{formatCentralDateTime(deadlineAt)}</p>
     </div>
   );
 }
