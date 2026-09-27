@@ -21,7 +21,7 @@ async function functionErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Request failed.";
 }
 
-export async function callFunction<T>(name: string, body: unknown, token?: string): Promise<T> {
+export async function callFunction<T>(name: string, body: Record<string, unknown>, token?: string): Promise<T> {
   if (!supabase) {
     throw new Error("Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
   }
