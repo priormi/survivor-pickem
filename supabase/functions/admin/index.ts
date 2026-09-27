@@ -1,8 +1,8 @@
 import { apiError, jsonResponse, optionsResponse } from "../_shared/errors.ts";
-import { requireSession } from "../_shared/supabase.ts";
+import { randomToken, requireSession, sha256 } from "../_shared/supabase.ts";
 
-async function getAdminState(supabase: any, leagueId: string) {
-  const { data: season, error: seasonError } = await supabase
+async function getActiveSeason(supabase: any, leagueId: string) {
+  return await supabase
     .from("seasons")
     .select("id, year, name, status, current_round_id")
     .eq("league_id", leagueId)
@@ -10,6 +10,10 @@ async function getAdminState(supabase: any, leagueId: string) {
     .order("year", { ascending: false })
     .limit(1)
     .single();
+}
+
+async function getAdminState(supabase: any, leagueId: string) {
+  const { data: season, error: seasonError } = await getActiveSeason(supabase, leagueId);
 
   if (seasonError) return { error: apiError("SEASON_LOOKUP_FAILED", seasonError.message, 500) };
 
@@ -21,13 +25,15 @@ async function getAdminState(supabase: any, leagueId: string) {
 
   if (roundError) return { error: apiError("ROUND_LOOKUP_FAILED", roundError.message, 500) };
 
-  const { count: activePlayerCount, error: playersError } = await supabase
+  const { data: participants, error: participantsError } = await supabase
     .from("season_players")
-    .select("id", { count: "exact", head: true })
+    .select("id, strike_count, status, joined_at, player:players(id, display_name, is_admin, active)")
     .eq("season_id", season.id)
-    .eq("status", "ACTIVE");
+    .order("joined_at", { ascending: true });
 
-  if (playersError) return { error: apiError("PLAYERS_COUNT_FAILED", playersError.message, 500) };
+  if (participantsError) return { error: apiError("PARTICIPANTS_LOOKUP_FAILED", participantsError.message, 500) };
+
+  const activeParticipants = (participants ?? []).filter((participant: any) => participant.status === "ACTIVE");
 
   const { count: submittedPickCount, error: picksError } = await supabase
     .from("picks")
@@ -59,12 +65,74 @@ async function getAdminState(supabase: any, leagueId: string) {
         status: round.status
       },
       counts: {
-        activePlayers: activePlayerCount ?? 0,
+        activePlayers: activeParticipants.length,
         submittedPicks: submittedPickCount ?? 0,
         lockedPicks: lockedPickCount ?? 0
-      }
+      },
+      participants: (participants ?? []).map((participant: any) => {
+        const player = Array.isArray(participant.player) ? participant.player[0] : participant.player;
+        return {
+          id: participant.id,
+          playerId: player?.id,
+          displayName: player?.display_name ?? "Unknown",
+          isAdmin: Boolean(player?.is_admin),
+          active: Boolean(player?.active),
+          strikeCount: participant.strike_count,
+          status: participant.status,
+          joinedAt: participant.joined_at
+        };
+      })
     }
   };
+}
+
+function cleanName(value: unknown) {
+  return String(value ?? "").trim().replace(/\s+/g, " ");
+}
+
+async function addParticipant(supabase: any, leagueId: string, payload: Record<string, unknown>) {
+  const displayName = cleanName(payload.displayName);
+  const pin = String(payload.pin ?? "").trim();
+
+  if (!displayName) return { error: apiError("MISSING_DISPLAY_NAME", "Enter a participant name.", 400) };
+  if (displayName.length > 40) return { error: apiError("DISPLAY_NAME_TOO_LONG", "Participant names must be 40 characters or less.", 400) };
+  if (!/^\d{4,8}$/.test(pin)) return { error: apiError("INVALID_PIN", "PIN must be 4 to 8 digits.", 400) };
+
+  const { data: existingPlayer, error: existingError } = await supabase
+    .from("players")
+    .select("id")
+    .eq("league_id", leagueId)
+    .eq("active", true)
+    .ilike("display_name", displayName)
+    .maybeSingle();
+
+  if (existingError) return { error: apiError("PLAYER_LOOKUP_FAILED", existingError.message, 500) };
+  if (existingPlayer) return { error: apiError("PLAYER_ALREADY_EXISTS", "A participant with that name already exists.", 409) };
+
+  const { data: season, error: seasonError } = await getActiveSeason(supabase, leagueId);
+  if (seasonError) return { error: apiError("SEASON_LOOKUP_FAILED", seasonError.message, 500) };
+
+  const salt = randomToken();
+  const pinHash = `sha256:${salt}:${await sha256(`${salt}:${pin}`)}`;
+
+  const { data: player, error: insertPlayerError } = await supabase
+    .from("players")
+    .insert({ league_id: leagueId, display_name: displayName, pin_hash: pinHash, is_admin: false, active: true })
+    .select("id")
+    .single();
+
+  if (insertPlayerError) return { error: apiError("PLAYER_CREATE_FAILED", insertPlayerError.message, 500) };
+
+  const { error: seasonPlayerError } = await supabase.from("season_players").insert({
+    season_id: season.id,
+    player_id: player.id,
+    strike_count: 0,
+    status: "ACTIVE"
+  });
+
+  if (seasonPlayerError) return { error: apiError("PARTICIPANT_CREATE_FAILED", seasonPlayerError.message, 500) };
+
+  return await getAdminState(supabase, leagueId);
 }
 
 Deno.serve(async (request) => {
@@ -77,7 +145,14 @@ Deno.serve(async (request) => {
   const { supabase, player } = session;
   if (!player.is_admin) return apiError("ADMIN_REQUIRED", "Commissioner access is required.", 403);
 
-  const result = await getAdminState(supabase, player.league_id);
+  const body = await request.json().catch(() => ({}));
+  const command = String(body.command ?? "get-state");
+  const payload = (body.payload && typeof body.payload === "object" ? body.payload : {}) as Record<string, unknown>;
+
+  const result = command === "add-participant"
+    ? await addParticipant(supabase, player.league_id, payload)
+    : await getAdminState(supabase, player.league_id);
+
   if ("error" in result) return result.error;
   return jsonResponse(result.state);
 });

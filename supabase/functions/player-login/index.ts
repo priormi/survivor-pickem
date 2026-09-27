@@ -1,6 +1,12 @@
 import { apiError, jsonResponse, optionsResponse } from "../_shared/errors.ts";
 import { randomToken, serviceClient, sha256 } from "../_shared/supabase.ts";
 
+async function verifySaltedPin(pinHash: string, pin: string) {
+  const [scheme, salt, expectedHash] = pinHash.split(":");
+  if (scheme !== "sha256" || !salt || !expectedHash) return false;
+  return (await sha256(`${salt}:${pin}`)) === expectedHash;
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return optionsResponse();
   if (request.method !== "POST") return apiError("METHOD_NOT_ALLOWED", "Use POST.", 405);
@@ -14,13 +20,36 @@ Deno.serve(async (request) => {
   }
 
   const supabase = serviceClient();
-  const { data: player, error } = await supabase.rpc("verify_player_pin", {
+  const { data: verifiedPlayer, error } = await supabase.rpc("verify_player_pin", {
     league_slug_input: leagueSlug,
     display_name_input: loginName,
     pin_input: loginPin
   }).maybeSingle();
 
   if (error) return apiError("LOGIN_FAILED", error.message, 500);
+
+  let player = verifiedPlayer;
+
+  if (!player) {
+    const { data: fallbackPlayer, error: fallbackError } = await supabase
+      .from("players")
+      .select("id, display_name, is_admin, pin_hash, league:leagues!inner(slug)")
+      .eq("league.slug", leagueSlug)
+      .eq("active", true)
+      .ilike("display_name", loginName)
+      .maybeSingle();
+
+    if (fallbackError) return apiError("LOGIN_FAILED", fallbackError.message, 500);
+
+    if (fallbackPlayer && await verifySaltedPin(fallbackPlayer.pin_hash, loginPin)) {
+      player = {
+        id: fallbackPlayer.id,
+        display_name: fallbackPlayer.display_name,
+        is_admin: fallbackPlayer.is_admin
+      };
+    }
+  }
+
   if (!player) return apiError("INVALID_LOGIN", "Player or PIN was not recognized.", 401);
 
   const token = randomToken();
