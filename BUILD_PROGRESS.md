@@ -58,16 +58,10 @@
 [x] Add NFL sync workflow
 [x] Prepare static `dist` output for Sites deployment
 [x] Deploy static version to an accessible URL
-[x] Prepare app for GitHub Pages subpath at `https://clubbinseals.com/survivor-pickem/`
+[x] Prepare app for GitHub Pages subpath at `https://priormi.github.io/survivor-pickem/`
 
-Published URL:
-
-```text
-https://prior-family-survivor.priormike.chatgpt.site
-```
-
-GitHub Pages URL after pushing to `priormi/clubbinseals`:
+Production URL:
 
 ```text
-https://clubbinseals.com/survivor-pickem/
+https://priormi.github.io/survivor-pickem/
 ```
