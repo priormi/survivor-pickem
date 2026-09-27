@@ -59,7 +59,7 @@ export function LoginPage() {
           />
         </label>
         {error ? <p className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p> : null}
-        <button className="rounded-lg bg-blue-700 px-4 py-3 font-bold text-white disabled:opacity-60" disabled={loading}>
+        <button className="rounded-lg bg-teal-700 px-4 py-3 font-bold text-white hover:bg-teal-800 disabled:opacity-60" disabled={loading}>
           {loading ? "Signing in..." : "Sign In"}
         </button>
       </form>

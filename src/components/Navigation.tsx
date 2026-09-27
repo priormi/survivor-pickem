@@ -17,7 +17,7 @@ export function Navigation() {
             key={to}
             to={to}
             className={({ isActive }) =>
-              `border-b-2 px-4 py-3 text-sm font-semibold ${isActive ? "border-blue-700 text-blue-700" : "border-transparent text-slate-600"}`
+              `border-b-2 px-4 py-3 text-sm font-semibold ${isActive ? "border-teal-700 text-teal-700" : "border-transparent text-slate-600"}`
             }
           >
             {label}

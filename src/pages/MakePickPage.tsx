@@ -84,7 +84,7 @@ export function MakePickPage() {
 
       <div className="sticky bottom-0 -mx-5 mt-5 border-t border-slate-200 bg-white p-5">
         <button
-          className="w-full rounded-lg bg-blue-700 px-4 py-3 font-bold text-white disabled:opacity-60"
+          className="w-full rounded-lg bg-teal-700 px-4 py-3 font-bold text-white hover:bg-teal-800 disabled:opacity-60"
           disabled={!selectedTeam || options.locked || saving}
           onClick={handleSubmit}
         >

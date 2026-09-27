@@ -48,7 +48,7 @@ export function HomePage() {
           </div>
           <StrikeBadge strikes={me?.strikeCount ?? 0} />
         </div>
-        <Link className="mt-4 inline-flex rounded-lg bg-blue-700 px-4 py-3 font-bold text-white" to="/pick">
+        <Link className="mt-4 inline-flex rounded-lg bg-teal-700 px-4 py-3 font-bold text-white hover:bg-teal-800" to="/pick">
           {me?.pickSubmitted ? "Change Pick" : "Make Pick"}
         </Link>
       </section>
