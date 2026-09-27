@@ -32,21 +32,35 @@ function MatchupPickButton({
   onSelect: (team: Team) => void;
 }) {
   const teamName = `${team.city} ${team.name}`;
+  const unavailable = disabled || !team.available;
+  const statusLabel = selected ? "Selected" : disabled ? "Locked" : team.used ? "Used previously" : "Available";
+  const statusClass = selected
+    ? "bg-teal-100 text-teal-800"
+    : disabled
+      ? "bg-slate-200 text-slate-600"
+      : team.used
+        ? "bg-amber-100 text-amber-800"
+        : "bg-green-100 text-green-800";
+  const cardClass = selected
+    ? "border-teal-700 bg-teal-50 ring-2 ring-teal-100"
+    : unavailable
+      ? "border-slate-200 bg-slate-100 text-slate-500"
+      : "border-slate-200 bg-white hover:border-teal-300 hover:bg-teal-50";
 
   return (
     <button
       type="button"
-      disabled={disabled || !team.available}
+      disabled={unavailable}
       onClick={() => onSelect(team)}
-      className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg border bg-white p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
-        selected ? "border-teal-700 ring-2 ring-teal-100" : "border-slate-200 hover:border-teal-300"
-      } ${align === "home" ? "md:flex-row-reverse md:text-right" : ""}`}
+      className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg border p-3 text-left transition disabled:cursor-not-allowed ${cardClass} ${
+        align === "home" ? "md:flex-row-reverse md:text-right" : ""
+      }`}
     >
       <TeamLogo abbreviation={team.abbreviation} name={teamName} />
       <div className="min-w-0">
         <p className="font-bold leading-tight">{teamName}</p>
-        <p className="text-sm font-semibold text-slate-500">{align === "home" ? "Home" : "Away"}</p>
-        {team.used ? <p className="text-sm font-semibold text-amber-700">Used previously</p> : null}
+        <div className={`mt-1 inline-flex rounded px-2 py-0.5 text-xs font-bold ${statusClass}`}>{statusLabel}</div>
+        <p className="mt-1 text-sm font-semibold text-slate-500">{align === "home" ? "Home" : "Away"}</p>
       </div>
     </button>
   );
