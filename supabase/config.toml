@@ -1,0 +1,19 @@
+project_id = "survivor-pickem"
+
+[functions.player-login]
+verify_jwt = false
+
+[functions.get-dashboard]
+verify_jwt = false
+
+[functions.get-pick-options]
+verify_jwt = false
+
+[functions.submit-pick]
+verify_jwt = false
+
+[functions.admin]
+verify_jwt = false
+
+[functions.process-round]
+verify_jwt = false
