@@ -32,6 +32,13 @@ export function HomePage() {
 
   const me = dashboard.players.find((player) => player.playerId === dashboard.player.id);
   const myPickLabel = me?.pickTeam ? `${me.pickTeam.city} ${me.pickTeam.name}` : undefined;
+  const picksRemaining = Math.max(
+    0,
+    dashboard.currentRound.expectedPickCount - dashboard.currentRound.submittedPickCount
+  );
+  const revealMessage = dashboard.currentRound.allPicksSubmitted
+    ? "All picks are in. Everyone's team is visible."
+    : `${picksRemaining} ${picksRemaining === 1 ? "pick" : "picks"} still out. Teams stay hidden until everyone is in.`;
 
   return (
     <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
@@ -53,7 +60,16 @@ export function HomePage() {
         </Link>
       </section>
       <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <h2 className="text-lg font-bold">Players</h2>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold">Dashboard</h2>
+            <p className="mt-1 text-sm font-semibold text-teal-700">{revealMessage}</p>
+          </div>
+          <span className="rounded bg-teal-50 px-3 py-1 text-sm font-bold text-teal-800">
+            {dashboard.currentRound.submittedPickCount}/{dashboard.currentRound.expectedPickCount}
+          </span>
+        </div>
+        <div className="mt-3">
         {dashboard.players.map((player) => (
           <div key={player.id} className="flex items-center justify-between gap-3 border-t border-slate-200 py-3 first:border-t-0">
             <div>
@@ -69,6 +85,7 @@ export function HomePage() {
             <StrikeBadge strikes={player.strikeCount} />
           </div>
         ))}
+        </div>
       </section>
     </div>
   );

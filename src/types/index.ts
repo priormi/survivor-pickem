@@ -53,6 +53,9 @@ export interface CurrentRound {
   deadlineAt: string;
   status: string;
   locked: boolean;
+  allPicksSubmitted: boolean;
+  submittedPickCount: number;
+  expectedPickCount: number;
 }
 
 export interface DashboardPlayer {
@@ -74,8 +77,15 @@ export interface DashboardResponse {
   players: DashboardPlayer[];
 }
 
+export interface PickOptionsRound {
+  id: string;
+  displayName: string;
+  deadlineAt: string;
+  status: string;
+}
+
 export interface PickOptionsResponse {
-  round: Omit<CurrentRound, "locked">;
+  round: PickOptionsRound;
   teams: Team[];
   currentPick: Team | null;
   locked: boolean;

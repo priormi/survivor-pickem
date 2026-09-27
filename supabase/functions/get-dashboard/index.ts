@@ -57,12 +57,18 @@ Deno.serve(async (request) => {
 
   const pickBySeasonPlayer = new Map((picks ?? []).map((pick) => [pick.season_player_id, pick]));
   const isLocked = new Date(round.deadline_at).getTime() <= Date.now() || round.status !== "OPEN";
+  const activeSeasonPlayers = (seasonPlayers ?? []).filter((seasonPlayer) => seasonPlayer.status === "ACTIVE");
+  const submittedActivePickCount = activeSeasonPlayers.filter((seasonPlayer) => pickBySeasonPlayer.has(seasonPlayer.id)).length;
+  const allActivePlayersPicked =
+    activeSeasonPlayers.length > 0 && submittedActivePickCount === activeSeasonPlayers.length;
+  const revealAllPicks = allActivePlayersPicked;
 
   const players = (seasonPlayers ?? []).map((seasonPlayer) => {
     const pick = pickBySeasonPlayer.get(seasonPlayer.id);
     const playerRecord = Array.isArray(seasonPlayer.player) ? seasonPlayer.player[0] : seasonPlayer.player;
     const rawTeam = Array.isArray(pick?.team) ? pick?.team[0] : pick?.team;
-    const team = rawTeam && (isLocked || playerRecord?.id === player.id || player.is_admin) ? rawTeam : null;
+    const canSeePick = revealAllPicks || playerRecord?.id === player.id;
+    const team = rawTeam && canSeePick ? rawTeam : null;
 
     return {
       id: seasonPlayer.id,
@@ -84,7 +90,10 @@ Deno.serve(async (request) => {
       displayName: round.display_name,
       deadlineAt: round.deadline_at,
       status: round.status,
-      locked: isLocked
+      locked: isLocked,
+      allPicksSubmitted: allActivePlayersPicked,
+      submittedPickCount: submittedActivePickCount,
+      expectedPickCount: activeSeasonPlayers.length
     },
     player: {
       id: player.id,
