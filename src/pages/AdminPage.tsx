@@ -1,7 +1,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { addParticipant, getAdminState, type AdminState } from "../services/admin";
+import { addParticipant, getAdminState, removeParticipant, type AdminState } from "../services/admin";
 import { formatCentralDateTime } from "../utils/dates";
 
 export function AdminPage() {
@@ -11,6 +11,8 @@ export function AdminPage() {
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,6 +44,26 @@ export function AdminPage() {
       setError(err instanceof Error ? err.message : "Unable to add participant.");
     } finally {
       setSaving(false);
+    }
+  }
+
+
+  async function handleRemoveParticipant(participantId: string, name: string) {
+    if (!auth.token || removingId) return;
+
+    setRemovingId(participantId);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const nextState = await removeParticipant(auth.token, participantId);
+      setState(nextState);
+      setMessage(`${name} was removed.`);
+      setConfirmRemoveId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to remove participant.");
+    } finally {
+      setRemovingId(null);
     }
   }
 
@@ -135,16 +157,53 @@ export function AdminPage() {
             <h3 className="font-bold">Participants</h3>
             <div className="mt-3 divide-y divide-slate-100">
               {state.participants.map((participant) => (
-                <div className="flex flex-wrap items-center justify-between gap-2 py-3" key={participant.id}>
-                  <div>
-                    <p className="font-bold">{participant.displayName}</p>
-                    <p className="text-sm font-semibold text-slate-500">
-                      {participant.status} - {participant.strikeCount} of 2 strikes{participant.isAdmin ? " - Admin" : ""}
-                    </p>
+                <div className="py-3" key={participant.id}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-bold">{participant.displayName}</p>
+                      <p className="text-sm font-semibold text-slate-500">
+                        {participant.status} - {participant.strikeCount} of 2 strikes{participant.isAdmin ? " - Admin" : ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-slate-100 px-2 py-1 text-xs font-bold uppercase text-slate-600">
+                        {participant.active ? "Active" : "Inactive"}
+                      </span>
+                      {!participant.isAdmin ? (
+                        <button
+                          className="rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-60"
+                          disabled={Boolean(removingId)}
+                          onClick={() => setConfirmRemoveId(participant.id)}
+                          type="button"
+                        >
+                          Delete
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
-                  <span className="rounded bg-slate-100 px-2 py-1 text-xs font-bold uppercase text-slate-600">
-                    {participant.active ? "Active" : "Inactive"}
-                  </span>
+                  {confirmRemoveId === participant.id ? (
+                    <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
+                      <p className="font-semibold text-red-800">Are you sure you want to remove {participant.displayName}?</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          className="rounded-lg bg-red-700 px-3 py-2 text-sm font-bold text-white hover:bg-red-800 disabled:opacity-60"
+                          disabled={removingId === participant.id}
+                          onClick={() => handleRemoveParticipant(participant.id, participant.displayName)}
+                          type="button"
+                        >
+                          {removingId === participant.id ? "Removing..." : "Yes, Remove"}
+                        </button>
+                        <button
+                          className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-white"
+                          disabled={removingId === participant.id}
+                          onClick={() => setConfirmRemoveId(null)}
+                          type="button"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>

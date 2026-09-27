@@ -38,13 +38,17 @@ Deno.serve(async (request) => {
 
   const { data: seasonPlayers, error: playersError } = await supabase
     .from("season_players")
-    .select("id, strike_count, status, player:players(id, display_name)")
+    .select("id, strike_count, status, player:players(id, display_name, active)")
     .eq("season_id", season.id)
     .order("strike_count", { ascending: true });
 
   if (playersError) return apiError("PLAYERS_LOOKUP_FAILED", playersError.message, 500);
 
-  const seasonPlayerIds = (seasonPlayers ?? []).map((item) => item.id);
+  const visibleSeasonPlayers = (seasonPlayers ?? []).filter((seasonPlayer) => {
+    const playerRecord = Array.isArray(seasonPlayer.player) ? seasonPlayer.player[0] : seasonPlayer.player;
+    return playerRecord?.active !== false;
+  });
+  const seasonPlayerIds = visibleSeasonPlayers.map((item) => item.id);
   const { data: picks, error: picksError } = seasonPlayerIds.length
     ? await supabase
         .from("picks")
@@ -67,7 +71,7 @@ Deno.serve(async (request) => {
 
   const pickBySeasonPlayer = new Map((picks ?? []).map((pick) => [pick.season_player_id, pick]));
   const isLocked = new Date(round.deadline_at).getTime() <= Date.now() || round.status !== "OPEN";
-  const activeSeasonPlayers = (seasonPlayers ?? []).filter((seasonPlayer) => seasonPlayer.status === "ACTIVE");
+  const activeSeasonPlayers = visibleSeasonPlayers.filter((seasonPlayer) => seasonPlayer.status === "ACTIVE");
   const submittedActivePickCount = activeSeasonPlayers.filter((seasonPlayer) => pickBySeasonPlayer.has(seasonPlayer.id)).length;
   const allActivePlayersPicked =
     activeSeasonPlayers.length > 0 && submittedActivePickCount === activeSeasonPlayers.length;
@@ -80,7 +84,7 @@ Deno.serve(async (request) => {
     historyBySeasonPlayer.set(pick.season_player_id, existing);
   }
 
-  const players = (seasonPlayers ?? []).map((seasonPlayer) => {
+  const players = visibleSeasonPlayers.map((seasonPlayer) => {
     const pick = pickBySeasonPlayer.get(seasonPlayer.id);
     const playerRecord = Array.isArray(seasonPlayer.player) ? seasonPlayer.player[0] : seasonPlayer.player;
     const rawTeam = Array.isArray(pick?.team) ? pick?.team[0] : pick?.team;

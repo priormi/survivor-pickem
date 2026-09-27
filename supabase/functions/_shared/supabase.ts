@@ -45,7 +45,7 @@ export async function requireSession(request: Request) {
   const tokenHash = await sha256(token);
   const { data, error } = await supabase
     .from("player_sessions")
-    .select("id, expires_at, player:players(id, league_id, display_name, is_admin)")
+    .select("id, expires_at, player:players(id, league_id, display_name, is_admin, active)")
     .eq("token_hash", tokenHash)
     .is("revoked_at", null)
     .maybeSingle();
@@ -63,6 +63,10 @@ export async function requireSession(request: Request) {
   const player = Array.isArray(data.player) ? data.player[0] : data.player;
   if (!player) {
     return { error: apiError("UNAUTHORIZED", "Player not found for session.", 401) };
+  }
+
+  if (!player.active) {
+    return { error: apiError("UNAUTHORIZED", "This account is inactive.", 401) };
   }
 
   return { supabase, player };

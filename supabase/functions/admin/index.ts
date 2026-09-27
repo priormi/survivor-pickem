@@ -33,20 +33,31 @@ async function getAdminState(supabase: any, leagueId: string) {
 
   if (participantsError) return { error: apiError("PARTICIPANTS_LOOKUP_FAILED", participantsError.message, 500) };
 
-  const activeParticipants = (participants ?? []).filter((participant: any) => participant.status === "ACTIVE");
+  const visibleParticipants = (participants ?? []).filter((participant: any) => {
+    const player = Array.isArray(participant.player) ? participant.player[0] : participant.player;
+    return player?.active !== false;
+  });
+  const activeParticipants = visibleParticipants.filter((participant: any) => participant.status === "ACTIVE");
+  const activeParticipantIds = activeParticipants.map((participant: any) => participant.id);
 
-  const { count: submittedPickCount, error: picksError } = await supabase
-    .from("picks")
-    .select("id", { count: "exact", head: true })
-    .eq("round_id", round.id);
+  const { count: submittedPickCount, error: picksError } = activeParticipantIds.length
+    ? await supabase
+        .from("picks")
+        .select("id", { count: "exact", head: true })
+        .eq("round_id", round.id)
+        .in("season_player_id", activeParticipantIds)
+    : { count: 0, error: null };
 
   if (picksError) return { error: apiError("PICKS_COUNT_FAILED", picksError.message, 500) };
 
-  const { count: lockedPickCount, error: lockedPicksError } = await supabase
-    .from("picks")
-    .select("id", { count: "exact", head: true })
-    .eq("round_id", round.id)
-    .not("locked_at", "is", null);
+  const { count: lockedPickCount, error: lockedPicksError } = activeParticipantIds.length
+    ? await supabase
+        .from("picks")
+        .select("id", { count: "exact", head: true })
+        .eq("round_id", round.id)
+        .in("season_player_id", activeParticipantIds)
+        .not("locked_at", "is", null)
+    : { count: 0, error: null };
 
   if (lockedPicksError) return { error: apiError("LOCKED_PICKS_COUNT_FAILED", lockedPicksError.message, 500) };
 
@@ -69,7 +80,7 @@ async function getAdminState(supabase: any, leagueId: string) {
         submittedPicks: submittedPickCount ?? 0,
         lockedPicks: lockedPickCount ?? 0
       },
-      participants: (participants ?? []).map((participant: any) => {
+      participants: visibleParticipants.map((participant: any) => {
         const player = Array.isArray(participant.player) ? participant.player[0] : participant.player;
         return {
           id: participant.id,
@@ -135,6 +146,53 @@ async function addParticipant(supabase: any, leagueId: string, payload: Record<s
   return await getAdminState(supabase, leagueId);
 }
 
+async function removeParticipant(supabase: any, leagueId: string, adminPlayerId: string, payload: Record<string, unknown>) {
+  const participantId = String(payload.participantId ?? "").trim();
+
+  if (!participantId) return { error: apiError("MISSING_PARTICIPANT", "Choose a participant to remove.", 400) };
+
+  const { data: participant, error: participantError } = await supabase
+    .from("season_players")
+    .select("id, player_id, player:players(id, league_id, display_name, is_admin, active)")
+    .eq("id", participantId)
+    .maybeSingle();
+
+  if (participantError) return { error: apiError("PARTICIPANT_LOOKUP_FAILED", participantError.message, 500) };
+  if (!participant) return { error: apiError("PARTICIPANT_NOT_FOUND", "Participant was not found.", 404) };
+
+  const participantPlayer = Array.isArray(participant.player) ? participant.player[0] : participant.player;
+  if (!participantPlayer || participantPlayer.league_id !== leagueId) {
+    return { error: apiError("PARTICIPANT_NOT_FOUND", "Participant was not found.", 404) };
+  }
+
+  if (participantPlayer.id === adminPlayerId) {
+    return { error: apiError("CANNOT_REMOVE_SELF", "You cannot remove your own admin account.", 400) };
+  }
+
+  if (participantPlayer.is_admin) {
+    return { error: apiError("CANNOT_REMOVE_ADMIN", "Admin accounts cannot be removed here.", 400) };
+  }
+
+  const now = new Date().toISOString();
+  const { error: playerUpdateError } = await supabase
+    .from("players")
+    .update({ active: false, updated_at: now })
+    .eq("id", participantPlayer.id);
+
+  if (playerUpdateError) return { error: apiError("PLAYER_REMOVE_FAILED", playerUpdateError.message, 500) };
+
+  const { error: seasonPlayerUpdateError } = await supabase
+    .from("season_players")
+    .update({ status: "ELIMINATED", updated_at: now })
+    .eq("id", participant.id);
+
+  if (seasonPlayerUpdateError) return { error: apiError("PARTICIPANT_REMOVE_FAILED", seasonPlayerUpdateError.message, 500) };
+
+  await supabase.from("player_sessions").update({ revoked_at: now }).eq("player_id", participantPlayer.id).is("revoked_at", null);
+
+  return await getAdminState(supabase, leagueId);
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return optionsResponse();
   if (request.method !== "POST") return apiError("METHOD_NOT_ALLOWED", "Use POST.", 405);
@@ -151,7 +209,9 @@ Deno.serve(async (request) => {
 
   const result = command === "add-participant"
     ? await addParticipant(supabase, player.league_id, payload)
-    : await getAdminState(supabase, player.league_id);
+    : command === "remove-participant"
+      ? await removeParticipant(supabase, player.league_id, player.id, payload)
+      : await getAdminState(supabase, player.league_id);
 
   if ("error" in result) return result.error;
   return jsonResponse(result.state);

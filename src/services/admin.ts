@@ -25,3 +25,7 @@ export function getAdminState(token: string) {
 export function addParticipant(token: string, displayName: string, pin: string) {
   return callFunction<AdminState>("admin", { command: "add-participant", payload: { displayName, pin } }, token);
 }
+
+export function removeParticipant(token: string, participantId: string) {
+  return callFunction<AdminState>("admin", { command: "remove-participant", payload: { participantId } }, token);
+}
