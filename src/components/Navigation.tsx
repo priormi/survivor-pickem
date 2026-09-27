@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 
 const links = [
   ["/", "Home"],
@@ -9,10 +10,13 @@ const links = [
 ];
 
 export function Navigation() {
+  const auth = useAuth();
+  const visibleLinks = links.filter(([to]) => to !== "/admin" || auth.player?.isAdmin);
+
   return (
     <nav className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4">
-        {links.map(([to, label]) => (
+        {visibleLinks.map(([to, label]) => (
           <NavLink
             key={to}
             to={to}
