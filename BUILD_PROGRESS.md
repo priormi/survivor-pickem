@@ -18,13 +18,13 @@
 
 ## Phase 3 - Authentication
 
-[~] Add Edge Function shell for PIN login and hashed sessions
-[ ] Implement bcrypt verification and session token hashing in Supabase
+[x] Add Edge Function-backed PIN login and hashed sessions
+[x] Implement PIN verification with pgcrypto and session token hashing in Supabase
 
 ## Phase 4 - League / Season / Round APIs
 
-[~] Add dashboard and pick-options Edge Function shells
-[ ] Implement real database-backed responses
+[x] Add database-backed dashboard and pick-options Edge Functions
+[ ] Add broader edge-case coverage for hidden pick visibility and inactive players
 
 ## Phase 5 - NFL Data
 
@@ -33,8 +33,8 @@
 
 ## Phase 6 - Picks
 
-[~] Add submit-pick Edge Function shell
-[ ] Implement transactional pick validation
+[x] Add submit-pick Edge Function with deadline, active-player, and used-team validation
+[ ] Move pick submission into a single database transaction/RPC for race resistance
 
 ## Phase 7 - Results Engine
 

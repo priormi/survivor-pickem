@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { PropsWithChildren, useContext, useMemo, useState } from "react";
+import { AuthContext } from "../context/AuthContext";
 import type { SessionPlayer } from "../types";
 
 function readPlayer() {
@@ -13,11 +14,11 @@ function readPlayer() {
   }
 }
 
-export function useAuth() {
+export function AuthProvider({ children }: PropsWithChildren) {
   const [token, setTokenState] = useState(() => localStorage.getItem("survivor-session"));
   const [player, setPlayerState] = useState<SessionPlayer | null>(() => readPlayer());
 
-  return useMemo(
+  const value = useMemo(
     () => ({
       token,
       player,
@@ -36,4 +37,12 @@ export function useAuth() {
     }),
     [player, token]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const auth = useContext(AuthContext);
+  if (!auth) throw new Error("useAuth must be used inside AuthProvider.");
+  return auth;
 }
