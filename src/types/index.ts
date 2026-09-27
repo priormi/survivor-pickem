@@ -84,9 +84,23 @@ export interface PickOptionsRound {
   status: string;
 }
 
+export interface MatchupTeam extends Team {
+  used: boolean;
+  available: boolean;
+}
+
+export interface PickMatchup {
+  id: string;
+  kickoffAt: string;
+  status: string;
+  homeTeam: MatchupTeam;
+  awayTeam: MatchupTeam;
+}
+
 export interface PickOptionsResponse {
   round: PickOptionsRound;
   teams: Team[];
+  matchups: PickMatchup[];
   currentPick: Team | null;
   locked: boolean;
   disabledReason?: string;

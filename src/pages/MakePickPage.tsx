@@ -4,7 +4,93 @@ import { TeamCard } from "../components/TeamCard";
 import { TeamLogo } from "../components/TeamLogo";
 import { useAuth } from "../hooks/useAuth";
 import { getPickOptions, submitPick } from "../services/picks";
-import type { PickOptionsResponse, Team } from "../types";
+import type { MatchupTeam, PickMatchup, PickOptionsResponse, Team } from "../types";
+
+function formatKickoff(kickoffAt: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Chicago",
+    timeZoneName: "short"
+  }).format(new Date(kickoffAt));
+}
+
+function MatchupPickButton({
+  team,
+  align,
+  disabled,
+  selected,
+  onSelect
+}: {
+  team: MatchupTeam;
+  align: "home" | "away";
+  disabled?: boolean;
+  selected?: boolean;
+  onSelect: (team: Team) => void;
+}) {
+  const teamName = `${team.city} ${team.name}`;
+
+  return (
+    <button
+      type="button"
+      disabled={disabled || !team.available}
+      onClick={() => onSelect(team)}
+      className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg border bg-white p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
+        selected ? "border-teal-700 ring-2 ring-teal-100" : "border-slate-200 hover:border-teal-300"
+      } ${align === "home" ? "md:flex-row-reverse md:text-right" : ""}`}
+    >
+      <TeamLogo abbreviation={team.abbreviation} name={teamName} />
+      <div className="min-w-0">
+        <p className="font-bold leading-tight">{teamName}</p>
+        <p className="text-sm font-semibold text-slate-500">{align === "home" ? "Home" : "Away"}</p>
+        {team.used ? <p className="text-sm font-semibold text-amber-700">Used previously</p> : null}
+      </div>
+    </button>
+  );
+}
+
+function MatchupCard({
+  matchup,
+  locked,
+  saving,
+  selectedTeamId,
+  onSelect
+}: {
+  matchup: PickMatchup;
+  locked: boolean;
+  saving: boolean;
+  selectedTeamId?: string;
+  onSelect: (team: Team) => void;
+}) {
+  return (
+    <article className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-bold text-slate-700">{formatKickoff(matchup.kickoffAt)}</p>
+        <span className="rounded bg-white px-2 py-1 text-xs font-bold uppercase text-slate-500">{matchup.status}</span>
+      </div>
+      <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center">
+        <MatchupPickButton
+          team={matchup.awayTeam}
+          align="away"
+          disabled={locked || saving}
+          selected={selectedTeamId === matchup.awayTeam.id}
+          onSelect={onSelect}
+        />
+        <span className="self-center px-2 text-sm font-black text-slate-400">AT</span>
+        <MatchupPickButton
+          team={matchup.homeTeam}
+          align="home"
+          disabled={locked || saving}
+          selected={selectedTeamId === matchup.homeTeam.id}
+          onSelect={onSelect}
+        />
+      </div>
+    </article>
+  );
+}
 
 export function MakePickPage() {
   const auth = useAuth();
@@ -80,17 +166,41 @@ export function MakePickPage() {
         </div>
       ) : null}
 
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {options.teams.map((team) => (
-          <TeamCard
-            key={team.id}
-            team={team}
-            disabled={options.locked || saving}
-            selected={selectedTeam?.id === team.id}
-            onSelect={setSelectedTeam}
-          />
-        ))}
-      </div>
+      {options.matchups.length ? (
+        <div className="mt-4 grid gap-3">
+          {options.matchups.map((matchup) => (
+            <MatchupCard
+              key={matchup.id}
+              matchup={matchup}
+              locked={options.locked}
+              saving={saving}
+              selectedTeamId={selectedTeam?.id}
+              onSelect={setSelectedTeam}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="mt-4 rounded-md bg-amber-50 p-3 font-semibold text-amber-800">
+          Weekly matchups have not been synced yet. Showing available teams only.
+        </p>
+      )}
+
+      {options.teams.length ? (
+        <div className="mt-5">
+          <h3 className="text-sm font-bold uppercase text-slate-500">Other available teams</h3>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {options.teams.map((team) => (
+              <TeamCard
+                key={team.id}
+                team={team}
+                disabled={options.locked || saving}
+                selected={selectedTeam?.id === team.id}
+                onSelect={setSelectedTeam}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="sticky bottom-0 -mx-5 mt-5 border-t border-slate-200 bg-white p-5">
         <button

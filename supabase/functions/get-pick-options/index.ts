@@ -39,10 +39,10 @@ Deno.serve(async (request) => {
 
   const locked = new Date(round.deadline_at).getTime() <= Date.now() || round.status !== "OPEN";
   if (seasonPlayer.status !== "ACTIVE") {
-    return jsonResponse({ round, teams: [], currentPick: null, locked, disabledReason: "PLAYER_ELIMINATED" });
+    return jsonResponse({ round, teams: [], matchups: [], currentPick: null, locked, disabledReason: "PLAYER_ELIMINATED" });
   }
   if (locked) {
-    return jsonResponse({ round, teams: [], currentPick: null, locked, disabledReason: "ROUND_LOCKED" });
+    return jsonResponse({ round, teams: [], matchups: [], currentPick: null, locked, disabledReason: "ROUND_LOCKED" });
   }
 
   const { data: usedPicks, error: usedError } = await supabase
@@ -72,7 +72,56 @@ Deno.serve(async (request) => {
 
   if (teamsError) return apiError("TEAMS_LOOKUP_FAILED", teamsError.message, 500);
 
+  const { data: games, error: gamesError } = await supabase
+    .from("games")
+    .select("id, kickoff_at, status, home_team:teams!games_home_team_id_fkey(id, abbreviation, city, name, conference, division), away_team:teams!games_away_team_id_fkey(id, abbreviation, city, name, conference, division)")
+    .eq("round_id", round.id)
+    .order("kickoff_at", { ascending: true });
+
+  if (gamesError) return apiError("GAMES_LOOKUP_FAILED", gamesError.message, 500);
+
   const currentTeam = Array.isArray(currentPick?.team) ? currentPick?.team[0] : currentPick?.team;
+  const availableTeams = (teams ?? []).filter((team) => !usedTeamIds.has(team.id));
+  const availabilityByTeamId = new Map((teams ?? []).map((team) => [team.id, !usedTeamIds.has(team.id)]));
+  const teamsWithAvailability = (teams ?? []).map((team) => ({
+    ...team,
+    used: availabilityByTeamId.get(team.id) === false,
+    available: availabilityByTeamId.get(team.id) === true
+  }));
+  const matchups = (games?.length
+    ? games.map((game) => {
+        const homeTeam = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team;
+        const awayTeam = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team;
+
+        return {
+          id: game.id,
+          kickoffAt: game.kickoff_at,
+          status: game.status,
+          homeTeam: {
+            ...homeTeam,
+            used: availabilityByTeamId.get(homeTeam?.id) === false,
+            available: availabilityByTeamId.get(homeTeam?.id) === true
+          },
+          awayTeam: {
+            ...awayTeam,
+            used: availabilityByTeamId.get(awayTeam?.id) === false,
+            available: availabilityByTeamId.get(awayTeam?.id) === true
+          }
+        };
+      })
+    : Array.from({ length: Math.floor(teamsWithAvailability.length / 2) }, (_, index) => {
+        const awayTeam = teamsWithAvailability[index * 2];
+        const homeTeam = teamsWithAvailability[index * 2 + 1];
+
+        return {
+          id: `demo-${awayTeam.id}-${homeTeam.id}`,
+          kickoffAt: round.deadline_at,
+          status: "SCHEDULED",
+          awayTeam,
+          homeTeam
+        };
+      }));
+  const matchupTeamIds = new Set(matchups.flatMap((matchup) => [matchup.homeTeam.id, matchup.awayTeam.id]));
 
   return jsonResponse({
     round: {
@@ -81,7 +130,8 @@ Deno.serve(async (request) => {
       deadlineAt: round.deadline_at,
       status: round.status
     },
-    teams: (teams ?? []).filter((team) => !usedTeamIds.has(team.id)),
+    teams: availableTeams.filter((team) => !matchupTeamIds.has(team.id)),
+    matchups,
     currentPick: currentTeam ?? null,
     locked
   });
