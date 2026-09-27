@@ -58,7 +58,7 @@ with league as (
   ) as seed(display_name, pin, is_admin)
 )
 insert into players (league_id, display_name, pin_hash, is_admin)
-select seeded_players.league_id, seeded_players.display_name, crypt(seeded_players.pin, gen_salt('bf')), seeded_players.is_admin
+select seeded_players.league_id, seeded_players.display_name, extensions.crypt(seeded_players.pin, extensions.gen_salt('bf')), seeded_players.is_admin
 from seeded_players
 where not exists (
   select 1

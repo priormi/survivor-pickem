@@ -1,4 +1,4 @@
-create extension if not exists pgcrypto;
+create extension if not exists pgcrypto with schema extensions;
 
 create table leagues (
   id uuid primary key default gen_random_uuid(),
@@ -189,6 +189,6 @@ as $$
   where l.slug = league_slug_input
     and p.active = true
     and lower(p.display_name) = lower(display_name_input)
-    and p.pin_hash = crypt(pin_input, p.pin_hash)
+    and p.pin_hash = extensions.crypt(pin_input, p.pin_hash)
   limit 1;
 $$;
