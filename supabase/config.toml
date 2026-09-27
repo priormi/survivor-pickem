@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.process-round]
 verify_jwt = false
+
+[functions.sync-nfl]
+verify_jwt = false
