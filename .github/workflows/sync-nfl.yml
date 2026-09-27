@@ -20,7 +20,8 @@ jobs:
           SUPABASE_FUNCTION_URL: ${{ secrets.SUPABASE_FUNCTION_URL }}
           SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
         run: |
-          curl --fail-with-body --request POST "$SUPABASE_FUNCTION_URL/sync-nfl" \
+          FUNCTION_URL="${SUPABASE_FUNCTION_URL:-https://picjogrcwpscjveyfmbr.supabase.co/functions/v1}"
+          curl --fail-with-body --request POST "$FUNCTION_URL/sync-nfl" \
             --header "authorization: Bearer $SYNC_SECRET" \
             --header "content-type: application/json" \
             --data '{"source":"github-actions"}'
