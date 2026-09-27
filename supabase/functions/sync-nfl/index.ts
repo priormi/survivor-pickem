@@ -45,15 +45,10 @@ function gameStatus(statusName?: string) {
 }
 
 function roundStatus(startDate: string, endDate: string, events: EspnEvent[], now = new Date()) {
-  const firstKickoff = events
-    .map((event) => new Date(event.date).getTime())
-    .filter(Number.isFinite)
-    .sort((a, b) => a - b)[0];
   const start = new Date(startDate).getTime();
   const end = new Date(endDate).getTime();
 
   if (events.length && events.every((event) => gameStatus(event.competitions?.[0]?.status?.type?.name) === "FINAL")) return "FINAL";
-  if (Number.isFinite(firstKickoff) && now.getTime() >= firstKickoff) return "LOCKED";
   if (now.getTime() >= start && now.getTime() <= end) return "OPEN";
   return "UPCOMING";
 }

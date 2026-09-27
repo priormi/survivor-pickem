@@ -70,7 +70,7 @@ Deno.serve(async (request) => {
   if (pickHistoryError) return apiError("PICK_HISTORY_LOOKUP_FAILED", pickHistoryError.message, 500);
 
   const pickBySeasonPlayer = new Map((picks ?? []).map((pick) => [pick.season_player_id, pick]));
-  const isLocked = new Date(round.deadline_at).getTime() <= Date.now() || round.status !== "OPEN";
+  const isRoundClosed = round.status === "FINAL" || round.status === "PROCESSING";
   const activeSeasonPlayers = visibleSeasonPlayers.filter((seasonPlayer) => seasonPlayer.status === "ACTIVE");
   const submittedActivePickCount = activeSeasonPlayers.filter((seasonPlayer) => pickBySeasonPlayer.has(seasonPlayer.id)).length;
   const allActivePlayersPicked =
@@ -128,7 +128,7 @@ Deno.serve(async (request) => {
       displayName: round.display_name,
       deadlineAt: round.deadline_at,
       status: round.status,
-      locked: isLocked,
+      locked: isRoundClosed || allActivePlayersPicked,
       allPicksSubmitted: allActivePlayersPicked,
       submittedPickCount: submittedActivePickCount,
       expectedPickCount: activeSeasonPlayers.length

@@ -37,9 +37,9 @@ Deno.serve(async (request) => {
 
   if (roundError) return apiError("ROUND_LOOKUP_FAILED", roundError.message, 500);
 
-  const deadlineLocked = new Date(round.deadline_at).getTime() <= Date.now() || round.status !== "OPEN";
+  const roundClosed = round.status === "FINAL" || round.status === "PROCESSING";
   if (seasonPlayer.status !== "ACTIVE") {
-    return jsonResponse({ round, teams: [], matchups: [], currentPick: null, locked: deadlineLocked, disabledReason: "PLAYER_ELIMINATED" });
+    return jsonResponse({ round, teams: [], matchups: [], currentPick: null, locked: roundClosed, disabledReason: "PLAYER_ELIMINATED" });
   }
 
   const { data: activeSeasonPlayers, error: activePlayersError } = await supabase
@@ -64,7 +64,7 @@ Deno.serve(async (request) => {
   const pickedSeasonPlayerIds = new Set((activeRoundPicks ?? []).map((pick) => pick.season_player_id));
   const allActivePlayersPicked =
     activeSeasonPlayerIds.length > 0 && activeSeasonPlayerIds.every((activePlayerId) => pickedSeasonPlayerIds.has(activePlayerId));
-  const locked = deadlineLocked || allActivePlayersPicked;
+  const locked = roundClosed || allActivePlayersPicked;
 
   const { data: usedPicks, error: usedError } = await supabase
     .from("picks")
@@ -98,7 +98,7 @@ Deno.serve(async (request) => {
       matchups: [],
       currentPick: currentTeam ?? null,
       locked,
-      disabledReason: allActivePlayersPicked ? "ALL_PICKS_LOCKED" : "ROUND_LOCKED"
+      disabledReason: allActivePlayersPicked ? "ALL_PICKS_LOCKED" : "ROUND_CLOSED"
     });
   }
 
@@ -119,8 +119,18 @@ Deno.serve(async (request) => {
   if (gamesError) return apiError("GAMES_LOOKUP_FAILED", gamesError.message, 500);
 
   const currentTeam = Array.isArray(currentPick?.team) ? currentPick?.team[0] : currentPick?.team;
-  const availableTeams = (teams ?? []).filter((team) => !usedTeamIds.has(team.id));
-  const availabilityByTeamId = new Map((teams ?? []).map((team) => [team.id, !usedTeamIds.has(team.id)]));
+  const now = Date.now();
+  const gameStartedTeamIds = new Set<string>();
+  for (const game of games ?? []) {
+    if (new Date(game.kickoff_at).getTime() <= now) {
+      const homeTeam = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team;
+      const awayTeam = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team;
+      if (homeTeam?.id) gameStartedTeamIds.add(homeTeam.id);
+      if (awayTeam?.id) gameStartedTeamIds.add(awayTeam.id);
+    }
+  }
+  const availableTeams = (teams ?? []).filter((team) => !usedTeamIds.has(team.id) && !gameStartedTeamIds.has(team.id));
+  const availabilityByTeamId = new Map((teams ?? []).map((team) => [team.id, !usedTeamIds.has(team.id) && !gameStartedTeamIds.has(team.id)]));
   const matchups = (games ?? []).map((game) => {
     const homeTeam = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team;
     const awayTeam = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team;

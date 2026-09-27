@@ -41,8 +41,8 @@ Deno.serve(async (request) => {
 
   if (roundError) return apiError("ROUND_LOOKUP_FAILED", roundError.message, 500);
   if (round.season_id !== seasonPlayer.season_id) return apiError("ROUND_MISMATCH", "Round is not part of this season.", 400);
-  if (round.status !== "OPEN" || new Date(round.deadline_at).getTime() <= Date.now()) {
-    return apiError("ROUND_LOCKED", "The pick deadline has passed.", 403);
+  if (round.status === "FINAL" || round.status === "PROCESSING") {
+    return apiError("ROUND_CLOSED", "This round is closed.", 403);
   }
 
   const { data: team, error: teamError } = await supabase
@@ -76,6 +76,34 @@ Deno.serve(async (request) => {
   if (existingPickError) return apiError("EXISTING_PICK_LOOKUP_FAILED", existingPickError.message, 500);
   if (existingPick?.locked_at) {
     return apiError("PICK_LOCKED", "Your pick is locked and can no longer be changed.", 403);
+  }
+
+  const now = Date.now();
+  const { data: selectedGame, error: selectedGameError } = await supabase
+    .from("games")
+    .select("id, kickoff_at")
+    .eq("round_id", roundId)
+    .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+    .maybeSingle();
+
+  if (selectedGameError) return apiError("GAME_LOOKUP_FAILED", selectedGameError.message, 500);
+  if (!selectedGame) return apiError("TEAM_NOT_IN_ROUND", "That team is not scheduled for this round.", 400);
+  if (new Date(selectedGame.kickoff_at).getTime() <= now) {
+    return apiError("TEAM_GAME_STARTED", "That team's game has already started.", 403);
+  }
+
+  if (existingPick) {
+    const { data: existingGame, error: existingGameError } = await supabase
+      .from("games")
+      .select("id, kickoff_at")
+      .eq("round_id", roundId)
+      .or(`home_team_id.eq.${existingPick.team_id},away_team_id.eq.${existingPick.team_id}`)
+      .maybeSingle();
+
+    if (existingGameError) return apiError("EXISTING_GAME_LOOKUP_FAILED", existingGameError.message, 500);
+    if (existingGame && new Date(existingGame.kickoff_at).getTime() <= now) {
+      return apiError("PICK_GAME_STARTED", "Your current pick's game has already started and can no longer be changed.", 403);
+    }
   }
 
   const { data: activeSeasonPlayers, error: activePlayersError } = await supabase
