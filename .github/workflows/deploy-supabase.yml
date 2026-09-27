@@ -25,3 +25,13 @@ jobs:
           version: latest
       - name: Deploy Edge Functions
         run: supabase functions deploy --project-ref "$PROJECT_REF"
+      - name: Sync current NFL week
+        env:
+          SUPABASE_FUNCTION_URL: ${{ secrets.SUPABASE_FUNCTION_URL }}
+          SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+        run: |
+          FUNCTION_URL="${SUPABASE_FUNCTION_URL:-https://picjogrcwpscjveyfmbr.supabase.co/functions/v1}"
+          curl --fail-with-body --request POST "$FUNCTION_URL/sync-nfl" \
+            --header "authorization: Bearer $SYNC_SECRET" \
+            --header "content-type: application/json" \
+            --data '{"source":"github-actions","mode":"current"}'
