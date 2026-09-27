@@ -17,5 +17,6 @@
     "jsx": "react-jsx"
   },
   "include": ["src", "tests"],
+  "exclude": ["tests/e2e"],
   "references": []
 }

@@ -30,6 +30,22 @@ npm test
 npm run build
 ```
 
+Run repeatable browser simulations for pick flow rules:
+
+```bash
+npm install
+npx playwright install chromium
+npm run test:e2e
+```
+
+To watch the scenarios in a browser, run:
+
+```bash
+npm run test:e2e:headed
+```
+
+The Playwright suite mocks Supabase Edge Functions in the browser so it can simulate four weeks, pre-lock changes, post-lock rejection, and previously used team rejection without changing production league data. Reports, screenshots, traces, and videos are written to Playwright's standard output folders.
+
 Node/npm are not installed in the current coding container, so these commands could not be executed here.
 
 ## Supabase Setup

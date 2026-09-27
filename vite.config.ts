@@ -5,6 +5,7 @@ export default defineConfig({
   base: "/survivor-pickem/",
   plugins: [react()],
   test: {
+    include: ["tests/**/*.test.ts"],
     environment: "jsdom",
     globals: true
   }
