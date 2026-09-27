@@ -6,5 +6,5 @@ export function getPickOptions(token: string) {
 }
 
 export function submitPick(token: string, roundId: string, teamId: string) {
-  return callFunction<{ pick: { team: Team; submittedAt: string } }>("submit-pick", { roundId, teamId }, token);
+  return callFunction<{ pick: { team: Team; submittedAt: string; locked: boolean } }>("submit-pick", { roundId, teamId }, token);
 }

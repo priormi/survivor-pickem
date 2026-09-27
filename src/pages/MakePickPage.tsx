@@ -121,7 +121,11 @@ export function MakePickPage() {
     try {
       const result = await submitPick(auth.token, options.round.id, selectedTeam.id);
       setSelectedTeam(result.pick.team);
-      setMessage(`Saved: ${result.pick.team.city} ${result.pick.team.name}`);
+      setMessage(
+        result.pick.locked
+          ? `Saved and locked: ${result.pick.team.city} ${result.pick.team.name}`
+          : `Saved: ${result.pick.team.city} ${result.pick.team.name}`
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save pick.");
     } finally {
@@ -179,11 +183,11 @@ export function MakePickPage() {
             />
           ))}
         </div>
-      ) : (
+      ) : !options.locked ? (
         <p className="mt-4 rounded-md bg-amber-50 p-3 font-semibold text-amber-800">
           Weekly matchups have not been synced yet. Showing available teams only.
         </p>
-      )}
+      ) : null}
 
       {options.teams.length ? (
         <div className="mt-5">

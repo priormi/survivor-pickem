@@ -37,13 +37,34 @@ Deno.serve(async (request) => {
 
   if (roundError) return apiError("ROUND_LOOKUP_FAILED", roundError.message, 500);
 
-  const locked = new Date(round.deadline_at).getTime() <= Date.now() || round.status !== "OPEN";
+  const deadlineLocked = new Date(round.deadline_at).getTime() <= Date.now() || round.status !== "OPEN";
   if (seasonPlayer.status !== "ACTIVE") {
-    return jsonResponse({ round, teams: [], matchups: [], currentPick: null, locked, disabledReason: "PLAYER_ELIMINATED" });
+    return jsonResponse({ round, teams: [], matchups: [], currentPick: null, locked: deadlineLocked, disabledReason: "PLAYER_ELIMINATED" });
   }
-  if (locked) {
-    return jsonResponse({ round, teams: [], matchups: [], currentPick: null, locked, disabledReason: "ROUND_LOCKED" });
-  }
+
+  const { data: activeSeasonPlayers, error: activePlayersError } = await supabase
+    .from("season_players")
+    .select("id")
+    .eq("season_id", season.id)
+    .eq("status", "ACTIVE");
+
+  if (activePlayersError) return apiError("ACTIVE_PLAYERS_LOOKUP_FAILED", activePlayersError.message, 500);
+
+  const activeSeasonPlayerIds = (activeSeasonPlayers ?? []).map((activePlayer) => activePlayer.id);
+  const { data: activeRoundPicks, error: activeRoundPicksError } = activeSeasonPlayerIds.length
+    ? await supabase
+        .from("picks")
+        .select("season_player_id")
+        .eq("round_id", round.id)
+        .in("season_player_id", activeSeasonPlayerIds)
+    : { data: [], error: null };
+
+  if (activeRoundPicksError) return apiError("ROUND_PICK_LOCK_CHECK_FAILED", activeRoundPicksError.message, 500);
+
+  const pickedSeasonPlayerIds = new Set((activeRoundPicks ?? []).map((pick) => pick.season_player_id));
+  const allActivePlayersPicked =
+    activeSeasonPlayerIds.length > 0 && activeSeasonPlayerIds.every((activePlayerId) => pickedSeasonPlayerIds.has(activePlayerId));
+  const locked = deadlineLocked || allActivePlayersPicked;
 
   const { data: usedPicks, error: usedError } = await supabase
     .from("picks")
@@ -63,6 +84,23 @@ Deno.serve(async (request) => {
     .maybeSingle();
 
   if (currentPickError) return apiError("CURRENT_PICK_LOOKUP_FAILED", currentPickError.message, 500);
+
+  if (locked) {
+    const currentTeam = Array.isArray(currentPick?.team) ? currentPick?.team[0] : currentPick?.team;
+    return jsonResponse({
+      round: {
+        id: round.id,
+        displayName: round.display_name,
+        deadlineAt: round.deadline_at,
+        status: round.status
+      },
+      teams: [],
+      matchups: [],
+      currentPick: currentTeam ?? null,
+      locked,
+      disabledReason: allActivePlayersPicked ? "ALL_PICKS_LOCKED" : "ROUND_LOCKED"
+    });
+  }
 
   const { data: teams, error: teamsError } = await supabase
     .from("teams")

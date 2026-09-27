@@ -66,12 +66,44 @@ Deno.serve(async (request) => {
   if (usedError) return apiError("USED_TEAM_CHECK_FAILED", usedError.message, 500);
   if (usedPick) return apiError("TEAM_ALREADY_USED", "You already used that team this season.", 409);
 
-  const { data: existingPick } = await supabase
+  const { data: existingPick, error: existingPickError } = await supabase
     .from("picks")
-    .select("id, team_id")
+    .select("id, team_id, locked_at")
     .eq("season_player_id", seasonPlayer.id)
     .eq("round_id", roundId)
     .maybeSingle();
+
+  if (existingPickError) return apiError("EXISTING_PICK_LOOKUP_FAILED", existingPickError.message, 500);
+  if (existingPick?.locked_at) {
+    return apiError("PICK_LOCKED", "Your pick is locked and can no longer be changed.", 403);
+  }
+
+  const { data: activeSeasonPlayers, error: activePlayersError } = await supabase
+    .from("season_players")
+    .select("id")
+    .eq("season_id", season.id)
+    .eq("status", "ACTIVE");
+
+  if (activePlayersError) return apiError("ACTIVE_PLAYERS_LOOKUP_FAILED", activePlayersError.message, 500);
+
+  const activeSeasonPlayerIds = (activeSeasonPlayers ?? []).map((activePlayer) => activePlayer.id);
+  const { data: activeRoundPicks, error: activeRoundPicksError } = activeSeasonPlayerIds.length
+    ? await supabase
+        .from("picks")
+        .select("season_player_id")
+        .eq("round_id", roundId)
+        .in("season_player_id", activeSeasonPlayerIds)
+    : { data: [], error: null };
+
+  if (activeRoundPicksError) return apiError("ROUND_PICK_LOCK_CHECK_FAILED", activeRoundPicksError.message, 500);
+
+  const pickedSeasonPlayerIds = new Set((activeRoundPicks ?? []).map((pick) => pick.season_player_id));
+  const allActivePlayersPickedBeforeSubmit =
+    activeSeasonPlayerIds.length > 0 && activeSeasonPlayerIds.every((activePlayerId) => pickedSeasonPlayerIds.has(activePlayerId));
+
+  if (existingPick && allActivePlayersPickedBeforeSubmit) {
+    return apiError("PICK_LOCKED", "All picks are in. Picks are locked and can no longer be changed.", 403);
+  }
 
   const submittedAt = new Date().toISOString();
   const { data: savedPick, error: saveError } = await supabase
@@ -91,6 +123,21 @@ Deno.serve(async (request) => {
 
   if (saveError) return apiError("PICK_SAVE_FAILED", saveError.message, 500);
 
+  pickedSeasonPlayerIds.add(seasonPlayer.id);
+  const allActivePlayersPickedAfterSubmit =
+    activeSeasonPlayerIds.length > 0 && activeSeasonPlayerIds.every((activePlayerId) => pickedSeasonPlayerIds.has(activePlayerId));
+
+  if (allActivePlayersPickedAfterSubmit) {
+    const { error: lockError } = await supabase
+      .from("picks")
+      .update({ locked_at: submittedAt })
+      .eq("round_id", roundId)
+      .in("season_player_id", activeSeasonPlayerIds)
+      .is("locked_at", null);
+
+    if (lockError) return apiError("PICK_LOCK_FAILED", lockError.message, 500);
+  }
+
   await supabase.from("pick_revisions").insert({
     pick_id: savedPick.id,
     previous_team_id: existingPick?.team_id ?? null,
@@ -102,7 +149,8 @@ Deno.serve(async (request) => {
   return jsonResponse({
     pick: {
       team,
-      submittedAt
+      submittedAt,
+      locked: allActivePlayersPickedAfterSubmit
     }
   });
 });
