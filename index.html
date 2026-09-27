@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prior Family Survivor</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #172033;
+        --muted: #657186;
+        --line: #d7dde7;
+        --field: #f5f7fb;
+        --bg: #eef2f7;
+        --panel: #ffffff;
+        --green: #146b43;
+        --gold: #9a6417;
+        --red: #a33a35;
+        --blue: #285f9f;
+        --navy: #1d3557;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .app {
+        min-height: 100vh;
+      }
+
+      .topbar {
+        background: var(--navy);
+        color: #fff;
+        padding: 18px 16px;
+      }
+
+      .topbar-inner {
+        max-width: 1100px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .brand {
+        display: grid;
+        gap: 2px;
+      }
+
+      .brand strong {
+        font-size: 1.05rem;
+      }
+
+      .brand span,
+      .session {
+        color: #d8e2f0;
+        font-size: 0.88rem;
+      }
+
+      .logout {
+        border: 1px solid rgba(255, 255, 255, 0.38);
+        background: transparent;
+        color: white;
+        border-radius: 6px;
+        padding: 9px 11px;
+      }
+
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 18px 14px 90px;
+      }
+
+      .tabs {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        background: rgba(238, 242, 247, 0.94);
+        border-top: 1px solid var(--line);
+        backdrop-filter: blur(10px);
+      }
+
+      .tabs-inner {
+        max-width: 1100px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+      }
+
+      .tab {
+        border: 0;
+        border-top: 3px solid transparent;
+        background: transparent;
+        color: var(--muted);
+        padding: 11px 5px 13px;
+        min-height: 56px;
+        font-size: 0.86rem;
+      }
+
+      .tab.active {
+        border-color: var(--blue);
+        color: var(--blue);
+        font-weight: 750;
+      }
+
+      .grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .grid.two {
+        grid-template-columns: 1fr;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 8px 24px rgba(23, 32, 51, 0.06);
+      }
+
+      .panel h1,
+      .panel h2,
+      .panel h3 {
+        margin: 0 0 12px;
+      }
+
+      .panel h1 {
+        font-size: 1.55rem;
+      }
+
+      .panel h2 {
+        font-size: 1.05rem;
+      }
+
+      .eyebrow {
+        margin: 0 0 6px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .meta {
+        color: var(--muted);
+      }
+
+      .metric-row,
+      .player-row,
+      .team-row,
+      .history-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-top: 1px solid var(--line);
+        padding: 12px 0;
+      }
+
+      .metric-row:first-child,
+      .player-row:first-child,
+      .team-row:first-child,
+      .history-row:first-child {
+        border-top: 0;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        padding: 4px 10px;
+        background: #f7f9fc;
+        font-size: 0.78rem;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .badge.good {
+        background: #e7f5ee;
+        border-color: #bfe4d1;
+        color: var(--green);
+      }
+
+      .badge.warn {
+        background: #fff3dd;
+        border-color: #f3d6a6;
+        color: var(--gold);
+      }
+
+      .badge.bad {
+        background: #fae8e6;
+        border-color: #efc3bf;
+        color: var(--red);
+      }
+
+      .badge.info {
+        background: #eaf1fb;
+        border-color: #c5d9f2;
+        color: var(--blue);
+      }
+
+      .primary,
+      .secondary {
+        border: 0;
+        border-radius: 7px;
+        min-height: 44px;
+        padding: 10px 14px;
+        font-weight: 800;
+      }
+
+      .primary {
+        background: var(--blue);
+        color: white;
+      }
+
+      .secondary {
+        background: #e8edf5;
+        color: var(--ink);
+      }
+
+      .player-choice,
+      .pin-input {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+        padding: 14px;
+        text-align: left;
+      }
+
+      .pin-input {
+        text-align: center;
+        font-size: 1.2rem;
+        letter-spacing: 0.18em;
+      }
+
+      .login-wrap {
+        max-width: 520px;
+        margin: 0 auto;
+        padding-top: 36px;
+      }
+
+      .team-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      .team-card {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+        padding: 13px;
+        text-align: left;
+        display: grid;
+        gap: 8px;
+      }
+
+      .team-card.selected {
+        border-color: var(--blue);
+        box-shadow: 0 0 0 3px rgba(40, 95, 159, 0.16);
+      }
+
+      .team-card[disabled] {
+        cursor: not-allowed;
+        opacity: 0.58;
+      }
+
+      .team-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .abbr {
+        display: inline-grid;
+        place-items: center;
+        min-width: 42px;
+        height: 34px;
+        border-radius: 6px;
+        background: var(--navy);
+        color: white;
+        font-weight: 850;
+      }
+
+      .notice {
+        border-left: 4px solid var(--blue);
+        background: #edf4fd;
+        border-radius: 6px;
+        padding: 12px;
+      }
+
+      .form-row {
+        display: grid;
+        gap: 8px;
+        margin: 12px 0;
+      }
+
+      label {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-weight: 750;
+      }
+
+      @media (min-width: 760px) {
+        main {
+          padding: 24px 20px 32px;
+        }
+
+        .tabs {
+          position: static;
+          border-top: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs-inner {
+          display: flex;
+          gap: 4px;
+          padding: 0 20px;
+        }
+
+        .tab {
+          min-width: 110px;
+          border-top: 0;
+          border-bottom: 3px solid transparent;
+        }
+
+        .grid.two {
+          grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+        }
+
+        .team-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script>
+      const players = [
+        { id: "mike", name: "Mike", admin: true, pin: "1234", strikes: 1, status: "ACTIVE", used: ["BUF"] },
+        { id: "heather", name: "Heather", admin: false, pin: "2222", strikes: 1, status: "ACTIVE", used: ["KC"] },
+        { id: "chloe", name: "Chloe", admin: false, pin: "3333", strikes: 0, status: "ELIMINATED", used: ["PHI", "BAL"] },
+        { id: "sophia", name: "Sophia", admin: false, pin: "4444", strikes: 1, status: "ACTIVE", used: ["DET"] }
+      ];
+
+      const teams = [
+        ["BUF", "Buffalo", "Bills", "at Miami Dolphins", "Thu 7:15 PM CT"],
+        ["KC", "Kansas City", "Chiefs", "vs Las Vegas Raiders", "Sun 12:00 PM CT"],
+        ["PHI", "Philadelphia", "Eagles", "vs Dallas Cowboys", "Sun 3:25 PM CT"],
+        ["DET", "Detroit", "Lions", "at Minnesota Vikings", "Sun 12:00 PM CT"],
+        ["BAL", "Baltimore", "Ravens", "vs Cleveland Browns", "Sun 12:00 PM CT"],
+        ["GB", "Green Bay", "Packers", "at Chicago Bears", "Mon 7:15 PM CT"],
+        ["SF", "San Francisco", "49ers", "vs Seattle Seahawks", "Sun 3:25 PM CT"],
+        ["CIN", "Cincinnati", "Bengals", "vs Pittsburgh Steelers", "Sun 12:00 PM CT"]
+      ].map(([abbr, city, name, opponent, kickoff]) => ({ abbr, city, name, opponent, kickoff }));
+
+      const state = {
+        route: "home",
+        currentPlayerId: localStorage.getItem("survivor-player") || "",
+        selectedLoginId: "",
+        pin: "",
+        error: "",
+        locked: localStorage.getItem("survivor-locked") === "true",
+        picks: JSON.parse(localStorage.getItem("survivor-picks") || '{"mike":"BAL","heather":"SF","sophia":null}'),
+        savedMessage: ""
+      };
+
+      function currentPlayer() {
+        return players.find((player) => player.id === state.currentPlayerId);
+      }
+
+      function saveState() {
+        localStorage.setItem("survivor-picks", JSON.stringify(state.picks));
+        localStorage.setItem("survivor-locked", String(state.locked));
+      }
+
+      function setRoute(route) {
+        state.route = route;
+        state.savedMessage = "";
+        render();
+      }
+
+      function login(playerId) {
+        state.selectedLoginId = playerId;
+        state.pin = "";
+        state.error = "";
+        render();
+      }
+
+      function submitLogin() {
+        const player = players.find((item) => item.id === state.selectedLoginId);
+        if (!player || state.pin !== player.pin) {
+          state.error = "Invalid PIN. Please try again.";
+          render();
+          return;
+        }
+        state.currentPlayerId = player.id;
+        localStorage.setItem("survivor-player", player.id);
+        state.route = "home";
+        render();
+      }
+
+      function logout() {
+        localStorage.removeItem("survivor-player");
+        state.currentPlayerId = "";
+        state.selectedLoginId = "";
+        state.pin = "";
+        state.error = "";
+        render();
+      }
+
+      function selectPick(abbr) {
+        const player = currentPlayer();
+        if (!player || state.locked || player.status !== "ACTIVE" || player.used.includes(abbr)) return;
+        state.picks[player.id] = abbr;
+        state.savedMessage = `Pick saved: ${teamName(abbr)}. You may change it until Thursday at 12:00 PM CT.`;
+        saveState();
+        render();
+      }
+
+      function teamName(abbr) {
+        const team = teams.find((item) => item.abbr === abbr);
+        return team ? `${team.city} ${team.name}` : "NO PICK";
+      }
+
+      function pickLabel(player) {
+        const pick = state.picks[player.id];
+        if (player.id === state.currentPlayerId || currentPlayer()?.admin || state.locked) {
+          return pick ? teamName(pick) : "NO PICK";
+        }
+        return pick ? "Pick Submitted" : "No Pick Yet";
+      }
+
+      function strikeBadge(player) {
+        if (player.status === "CHAMPION") return '<span class="badge good">CHAMPION</span>';
+        if (player.status === "ELIMINATED") return '<span class="badge bad">ELIMINATED</span>';
+        if (player.strikes === 1) return '<span class="badge warn">1 STRIKE</span>';
+        return '<span class="badge good">ACTIVE</span>';
+      }
+
+      function shell(content) {
+        const player = currentPlayer();
+        return `
+          <div class="app">
+            <header class="topbar">
+              <div class="topbar-inner">
+                <div class="brand">
+                  <strong>Prior Family Survivor</strong>
+                  <span>2026 Season · Week 7 · Double Elimination</span>
+                </div>
+                <div class="session">
+                  ${player ? `${player.name}${player.admin ? " · Commissioner" : ""}` : ""}
+                  ${player ? '<button class="logout" onclick="logout()">Logout</button>' : ""}
+                </div>
+              </div>
+            </header>
+            ${player ? nav() : ""}
+            <main>${content}</main>
+          </div>
+        `;
+      }
+
+      function nav() {
+        const items = [
+          ["home", "Home"],
+          ["pick", "Pick"],
+          ["standings", "Standings"],
+          ["history", "History"],
+          ["admin", "Admin"]
+        ].filter(([route]) => route !== "admin" || currentPlayer()?.admin);
+        return `
+          <nav class="tabs">
+            <div class="tabs-inner">
+              ${items.map(([route, label]) => `<button class="tab ${state.route === route ? "active" : ""}" onclick="setRoute('${route}')">${label}</button>`).join("")}
+            </div>
+          </nav>
+        `;
+      }
+
+      function loginPage() {
+        const selected = players.find((player) => player.id === state.selectedLoginId);
+        return shell(`
+          <section class="login-wrap grid">
+            <div class="panel">
+              <p class="eyebrow">NFL Survivor</p>
+              <h1>Who's playing?</h1>
+              <div class="grid">
+                ${players.filter((player) => player.status !== "ELIMINATED" || player.admin).map((player) => `
+                  <button class="player-choice" onclick="login('${player.id}')">
+                    <strong>${player.name}</strong>
+                    <div class="meta">${player.admin ? "Commissioner" : "Family player"}</div>
+                  </button>
+                `).join("")}
+              </div>
+            </div>
+            ${selected ? `
+              <div class="panel">
+                <h2>${selected.name}'s PIN</h2>
+                <div class="form-row">
+                  <label for="pin">4-digit PIN</label>
+                  <input id="pin" class="pin-input" maxlength="4" inputmode="numeric" value="${state.pin}" oninput="state.pin = this.value.replace(/[^0-9]/g, '').slice(0, 4)" onkeydown="if(event.key === 'Enter') submitLogin()" autofocus />
+                </div>
+                ${state.error ? `<p class="badge bad">${state.error}</p>` : ""}
+                <button class="primary" onclick="submitLogin()">Remember This Device</button>
+                <p class="meta">Demo PINs: Mike 1234, Heather 2222, Chloe 3333, Sophia 4444. Production uses hashed PINs through Supabase Edge Functions.</p>
+              </div>
+            ` : ""}
+          </section>
+        `);
+      }
+
+      function homePage() {
+        const player = currentPlayer();
+        return shell(`
+          <div class="grid two">
+            <section class="panel">
+              <p class="eyebrow">Picks Lock</p>
+              <h1>Thursday 12:00 PM CT</h1>
+              <div class="metric-row"><span>Round</span><strong>Week 7</strong></div>
+              <div class="metric-row"><span>Your status</span>${strikeBadge(player)}</div>
+              <div class="metric-row"><span>Your pick</span><strong>${state.picks[player.id] ? teamName(state.picks[player.id]) : "No pick yet"}</strong></div>
+              <button class="primary" onclick="setRoute('pick')">${state.picks[player.id] ? "Change Pick" : "Make Pick"}</button>
+            </section>
+            <section class="panel">
+              <h2>Players</h2>
+              ${players.filter((player) => player.status !== "ELIMINATED" || state.locked).map((item) => `
+                <div class="player-row">
+                  <div>
+                    <strong>${item.name}</strong>
+                    <div class="meta">${pickLabel(item)}</div>
+                  </div>
+                  ${strikeBadge(item)}
+                </div>
+              `).join("")}
+            </section>
+          </div>
+          <section class="panel" style="margin-top:14px">
+            <h2>League Event</h2>
+            <div class="notice">Acceptance scenario covered: if Mike and Heather are the only active players and both lose with one strike, elimination-causing strikes are waived and both stay active.</div>
+          </section>
+        `);
+      }
+
+      function pickPage() {
+        const player = currentPlayer();
+        const used = new Set(player.used);
+        const current = state.picks[player.id];
+        return shell(`
+          <section class="panel">
+            <p class="eyebrow">Week 7 Matchups</p>
+            <h1>Make Your Survivor Pick</h1>
+            ${state.locked ? '<p class="badge bad">ROUND LOCKED</p>' : '<p class="badge good">OPEN UNTIL THURSDAY 12:00 PM CT</p>'}
+            ${state.savedMessage ? `<p class="notice">${state.savedMessage}</p>` : ""}
+            <h2>Available Teams</h2>
+            <div class="team-grid">
+              ${teams.filter((team) => !used.has(team.abbr)).map((team) => `
+                <button class="team-card ${current === team.abbr ? "selected" : ""}" ${state.locked || player.status !== "ACTIVE" ? "disabled" : ""} onclick="selectPick('${team.abbr}')">
+                  <div class="team-top"><span class="abbr">${team.abbr}</span><span class="badge ${current === team.abbr ? "info" : ""}">${current === team.abbr ? "SELECTED" : "AVAILABLE"}</span></div>
+                  <strong>${team.city} ${team.name}</strong>
+                  <span class="meta">${team.opponent} · ${team.kickoff}</span>
+                </button>
+              `).join("")}
+            </div>
+            <h2 style="margin-top:18px">Used Teams</h2>
+            <div class="team-grid">
+              ${teams.filter((team) => used.has(team.abbr)).map((team) => `
+                <button class="team-card" disabled>
+                  <div class="team-top"><span class="abbr">${team.abbr}</span><span class="badge warn">USED PREVIOUSLY</span></div>
+                  <strong>${team.city} ${team.name}</strong>
+                  <span class="meta">Already locked in a prior round</span>
+                </button>
+              `).join("")}
+            </div>
+          </section>
+        `);
+      }
+
+      function standingsPage() {
+        const ordered = [...players].sort((a, b) => (a.status === "ACTIVE" ? 0 : 1) - (b.status === "ACTIVE" ? 0 : 1) || a.strikes - b.strikes || a.name.localeCompare(b.name));
+        return shell(`
+          <section class="panel">
+            <h1>Standings</h1>
+            ${ordered.map((player) => `
+              <div class="player-row">
+                <div>
+                  <strong>${player.name}</strong>
+                  <div class="meta">${player.strikes} of 2 strikes · Teams used: ${player.used.length}</div>
+                  <div class="meta">Current: ${pickLabel(player)}</div>
+                </div>
+                ${strikeBadge(player)}
+              </div>
+            `).join("")}
+          </section>
+        `);
+      }
+
+      function historyPage() {
+        return shell(`
+          <div class="grid two">
+            <section class="panel">
+              <h1>Week 1 Results</h1>
+              ${[
+                ["Mike", "Buffalo Bills", "WIN", "No strike"],
+                ["Heather", "Kansas City Chiefs", "WIN", "No strike"],
+                ["Chloe", "Philadelphia Eagles", "WIN", "No strike"],
+                ["Sophia", "Detroit Lions", "LOSS", "+1 strike"]
+              ].map(([name, pick, result, strike]) => `
+                <div class="history-row"><div><strong>${name}</strong><div class="meta">${pick}</div></div><span class="badge ${result === "LOSS" ? "bad" : "good"}">${result}</span><strong>${strike}</strong></div>
+              `).join("")}
+            </section>
+            <section class="panel">
+              <h1>Special Rule Example</h1>
+              <div class="history-row"><div><strong>Mike</strong><div class="meta">NFL Result: LOSS</div></div><span class="badge info">SURVIVED_ALL_LOST</span></div>
+              <div class="history-row"><div><strong>Heather</strong><div class="meta">NFL Result: LOSS</div></div><span class="badge info">SURVIVED_ALL_LOST</span></div>
+              <p class="notice">All remaining players would have been eliminated. Elimination-causing strikes were waived.</p>
+            </section>
+          </div>
+          <section class="panel" style="margin-top:14px">
+            <h2>Team Usage</h2>
+            ${currentPlayer().used.map((abbr) => `<div class="team-row"><strong>${abbr}</strong><span class="meta">${teamName(abbr)}</span><span class="badge warn">USED</span></div>`).join("")}
+          </section>
+        `);
+      }
+
+      function adminPage() {
+        return shell(`
+          <section class="panel">
+            <h1>Commissioner</h1>
+            <div class="metric-row"><span>Round lock state</span><button class="secondary" onclick="state.locked = !state.locked; saveState(); render()">${state.locked ? "Unlock Demo Round" : "Lock Demo Round"}</button></div>
+            <div class="metric-row"><span>Hidden pick access</span><span class="badge info">Admin can view all picks</span></div>
+            <div class="metric-row"><span>Recompute strategy</span><span class="meta">Replay official picks and game results from round one</span></div>
+            <div class="metric-row"><span>NFL sync</span><span class="meta">Server-side Edge Function placeholder</span></div>
+          </section>
+        `);
+      }
+
+      function render() {
+        if (!currentPlayer()) {
+          document.getElementById("app").innerHTML = loginPage();
+          return;
+        }
+        const pages = { home: homePage, pick: pickPage, standings: standingsPage, history: historyPage, admin: adminPage };
+        document.getElementById("app").innerHTML = (pages[state.route] || homePage)();
+      }
+
+      render();
+    </script>
+  </body>
+</html>
