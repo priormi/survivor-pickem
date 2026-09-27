@@ -1,3 +1,4 @@
+import { TeamLogo } from "./TeamLogo";
 import type { Team } from "../types";
 
 export function TeamCard({
@@ -20,10 +21,15 @@ export function TeamCard({
         selected ? "border-teal-700 ring-2 ring-teal-100" : "border-slate-200 hover:border-teal-300"
       }`}
     >
-      <span className="rounded bg-teal-800 px-2 py-1 text-sm font-bold text-white">{team.abbreviation}</span>
-      <p className="mt-2 font-bold">
-        {team.city} {team.name}
-      </p>
+      <div className="flex items-center gap-3">
+        <TeamLogo abbreviation={team.abbreviation} name={`${team.city} ${team.name}`} />
+        <div className="min-w-0">
+          <span className="rounded bg-teal-800 px-2 py-1 text-sm font-bold text-white">{team.abbreviation}</span>
+          <p className="mt-2 font-bold leading-tight">
+            {team.city} {team.name}
+          </p>
+        </div>
+      </div>
     </button>
   );
 }

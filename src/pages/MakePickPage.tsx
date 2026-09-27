@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { TeamCard } from "../components/TeamCard";
+import { TeamLogo } from "../components/TeamLogo";
 import { useAuth } from "../hooks/useAuth";
 import { getPickOptions, submitPick } from "../services/picks";
 import type { PickOptionsResponse, Team } from "../types";
@@ -69,6 +70,15 @@ export function MakePickPage() {
       ) : null}
       {error ? <p className="mt-4 rounded-md bg-red-50 p-3 font-semibold text-red-800">{error}</p> : null}
       {message ? <p className="mt-4 rounded-md bg-green-50 p-3 font-semibold text-green-800">{message}</p> : null}
+      {selectedTeam ? (
+        <div className="mt-4 flex items-center gap-3 rounded-lg border border-teal-200 bg-teal-50 p-3">
+          <TeamLogo abbreviation={selectedTeam.abbreviation} name={`${selectedTeam.city} ${selectedTeam.name}`} />
+          <div>
+            <p className="text-sm font-semibold text-teal-800">Selected team</p>
+            <p className="font-bold">{selectedTeam.city} {selectedTeam.name}</p>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {options.teams.map((team) => (

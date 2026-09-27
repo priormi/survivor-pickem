@@ -3,6 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import { Countdown } from "../components/Countdown";
 import { PickStatus } from "../components/PickStatus";
 import { StrikeBadge } from "../components/StrikeBadge";
+import { TeamLogo } from "../components/TeamLogo";
 import { useAuth } from "../hooks/useAuth";
 import { getDashboard } from "../services/league";
 import type { DashboardResponse } from "../types";
@@ -31,7 +32,7 @@ export function HomePage() {
   }
 
   const me = dashboard.players.find((player) => player.playerId === dashboard.player.id);
-  const myPickLabel = me?.pickTeam ? `${me.pickTeam.city} ${me.pickTeam.name}` : undefined;
+  const myPickName = me?.pickTeam ? `${me.pickTeam.city} ${me.pickTeam.name}` : undefined;
   const picksRemaining = Math.max(
     0,
     dashboard.currentRound.expectedPickCount - dashboard.currentRound.submittedPickCount
@@ -48,10 +49,20 @@ export function HomePage() {
         <div className="mt-4">
           <Countdown deadlineAt={dashboard.currentRound.deadlineAt} />
         </div>
-        <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-4">
-          <div>
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
+          <div className="min-w-0">
             <p className="font-bold">{dashboard.player.displayName}</p>
-            <PickStatus submitted={Boolean(me?.pickSubmitted)} label={myPickLabel ?? "No pick yet"} />
+            {me?.pickTeam && myPickName ? (
+              <div className="mt-2 flex items-center gap-3">
+                <TeamLogo abbreviation={me.pickTeam.abbreviation} name={myPickName} size="lg" />
+                <div>
+                  <p className="text-sm font-semibold text-slate-500">Your pick</p>
+                  <PickStatus submitted label={myPickName} />
+                </div>
+              </div>
+            ) : (
+              <PickStatus submitted={Boolean(me?.pickSubmitted)} label="No pick yet" />
+            )}
           </div>
           <StrikeBadge strikes={me?.strikeCount ?? 0} />
         </div>
@@ -72,15 +83,24 @@ export function HomePage() {
         <div className="mt-3">
         {dashboard.players.map((player) => (
           <div key={player.id} className="flex items-center justify-between gap-3 border-t border-slate-200 py-3 first:border-t-0">
-            <div>
-              <p className="font-bold">{player.displayName}</p>
-              <p className="text-sm text-slate-600">
-                {player.pickVisible && player.pickTeam
-                  ? `${player.pickTeam.city} ${player.pickTeam.name}`
-                  : player.pickSubmitted
-                    ? "Pick submitted"
-                    : "No pick yet"}
-              </p>
+            <div className="flex min-w-0 items-center gap-3">
+              {player.pickVisible && player.pickTeam ? (
+                <TeamLogo
+                  abbreviation={player.pickTeam.abbreviation}
+                  name={`${player.pickTeam.city} ${player.pickTeam.name}`}
+                  size="sm"
+                />
+              ) : null}
+              <div className="min-w-0">
+                <p className="font-bold">{player.displayName}</p>
+                <p className="text-sm text-slate-600">
+                  {player.pickVisible && player.pickTeam
+                    ? `${player.pickTeam.city} ${player.pickTeam.name}`
+                    : player.pickSubmitted
+                      ? "Pick submitted"
+                      : "No pick yet"}
+                </p>
+              </div>
             </div>
             <StrikeBadge strikes={player.strikeCount} />
           </div>
