@@ -45,8 +45,8 @@ export function HomePage() {
     <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{dashboard.season.name}</p>
-        <h2 className="text-2xl font-bold">{dashboard.currentRound.displayName}</h2>
-        <div className="mt-4">
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <h2 className="text-2xl font-bold">{dashboard.currentRound.displayName}</h2>
           <Countdown deadlineAt={dashboard.currentRound.deadlineAt} />
         </div>
         <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
