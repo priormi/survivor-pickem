@@ -24,8 +24,7 @@ export function TeamCard({
       <div className="flex items-center gap-3">
         <TeamLogo abbreviation={team.abbreviation} name={`${team.city} ${team.name}`} />
         <div className="min-w-0">
-          <span className="rounded bg-teal-800 px-2 py-1 text-sm font-bold text-white">{team.abbreviation}</span>
-          <p className="mt-2 font-bold leading-tight">
+          <p className="font-bold leading-tight">
             {team.city} {team.name}
           </p>
         </div>
