@@ -24,4 +24,4 @@ jobs:
           curl --fail-with-body --request POST "$FUNCTION_URL/sync-nfl" \
             --header "authorization: Bearer $SYNC_SECRET" \
             --header "content-type: application/json" \
-            --data '{"source":"github-actions"}'
+            --data '{"source":"github-actions","mode":"current"}'

@@ -25,9 +25,7 @@ type EspnCalendarEntry = {
 const SEASON_YEAR = 2026;
 const REGULAR_SEASON_TYPE = 2;
 const WEEK_COUNT = 18;
-const TEAM_ABBREVIATION_MAP: Record<string, string> = {
-  WSH: "WAS"
-};
+const TEAM_ABBREVIATION_MAP: Record<string, string> = { WSH: "WAS" };
 
 function authToken(request: Request) {
   return (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
@@ -75,22 +73,43 @@ async function fetchWeek(week: number) {
   return await fetchJson(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?${params}`);
 }
 
-Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return optionsResponse();
-  if (request.method !== "POST") return apiError("METHOD_NOT_ALLOWED", "Use POST.", 405);
+function regularSeasonEntries(data: any): EspnCalendarEntry[] {
+  return data.leagues?.[0]?.calendar?.find((item: any) => String(item.value) === String(REGULAR_SEASON_TYPE))?.entries ?? [];
+}
 
-  const syncSecret = Deno.env.get("SYNC_SECRET");
-  if (syncSecret && authToken(request) !== syncSecret) {
-    return apiError("UNAUTHORIZED", "Invalid sync token.", 401);
-  }
+async function weeksToSync(body: Record<string, unknown>, now = new Date()) {
+  const requestedWeeks = Array.isArray(body.weeks)
+    ? body.weeks.map((week) => Number(week)).filter((week) => Number.isInteger(week) && week >= 1 && week <= WEEK_COUNT)
+    : [];
 
+  if (requestedWeeks.length) return [...new Set(requestedWeeks)];
+  if (body.mode !== "current") return Array.from({ length: WEEK_COUNT }, (_, index) => index + 1);
+
+  const weekOneData = await fetchWeek(1);
+  const entries = regularSeasonEntries(weekOneData);
+  const currentEntry = entries.find((entry) => {
+    const start = new Date(entry.startDate).getTime();
+    const end = new Date(entry.endDate).getTime();
+    return now.getTime() >= start && now.getTime() <= end;
+  });
+
+  if (currentEntry) return [Number(currentEntry.value)];
+
+  const nextEntry = entries.find((entry) => new Date(entry.endDate).getTime() > now.getTime());
+  return [Number(nextEntry?.value ?? 1)];
+}
+
+async function runSync(request: Request) {
+  const body = await request.json().catch(() => ({})) as Record<string, unknown>;
   const supabase = serviceClient();
+  const now = new Date();
+  const weeks = await weeksToSync(body, now);
+
   const { data: league, error: leagueError } = await supabase
     .from("leagues")
     .select("id")
     .eq("slug", "prior-family")
     .single();
-
   if (leagueError) return apiError("LEAGUE_LOOKUP_FAILED", leagueError.message, 500);
 
   const { data: season, error: seasonError } = await supabase
@@ -98,34 +117,31 @@ Deno.serve(async (request) => {
     .upsert({ league_id: league.id, year: SEASON_YEAR, name: `${SEASON_YEAR} NFL Survivor`, status: "ACTIVE" }, { onConflict: "league_id,year" })
     .select("id")
     .single();
-
   if (seasonError) return apiError("SEASON_UPSERT_FAILED", seasonError.message, 500);
 
   const { data: teams, error: teamsError } = await supabase
     .from("teams")
     .select("id, abbreviation")
     .eq("active", true);
-
   if (teamsError) return apiError("TEAMS_LOOKUP_FAILED", teamsError.message, 500);
 
   const teamByAbbreviation = new Map((teams ?? []).map((team: any) => [team.abbreviation, team.id]));
   let currentRoundId: string | null = null;
   let syncedGames = 0;
   let syncedRounds = 0;
-  let calendarEntries: EspnCalendarEntry[] = [];
-  const now = new Date();
 
-  for (let week = 1; week <= WEEK_COUNT; week += 1) {
+  for (const week of weeks) {
     const data = await fetchWeek(week);
-    const regularSeason = data.leagues?.[0]?.calendar?.find((item: any) => String(item.value) === String(REGULAR_SEASON_TYPE));
-    calendarEntries = regularSeason?.entries ?? calendarEntries;
-    const calendarEntry = calendarEntries.find((entry) => Number(entry.value) === week) ?? {
+    const entries = regularSeasonEntries(data);
+    const calendarEntry = entries.find((entry) => Number(entry.value) === week) ?? {
       label: `Week ${week}`,
       value: String(week),
-      startDate: data.week?.startDate ?? data.events?.[0]?.date,
-      endDate: data.week?.endDate ?? data.events?.[data.events.length - 1]?.date
+      startDate: data.events?.[0]?.date,
+      endDate: data.events?.[data.events.length - 1]?.date
     };
     const events = (data.events ?? []) as EspnEvent[];
+    if (!calendarEntry.startDate || !calendarEntry.endDate) throw new Error(`Missing calendar window for Week ${week}.`);
+
     const earliestKickoff = events
       .map((event) => new Date(event.date).getTime())
       .filter(Number.isFinite)
@@ -146,8 +162,7 @@ Deno.serve(async (request) => {
       }, { onConflict: "season_id,round_code" })
       .select("id")
       .single();
-
-    if (roundError) return apiError("ROUND_UPSERT_FAILED", roundError.message, 500);
+    if (roundError) return apiError("ROUND_UPSERT_FAILED", `Week ${week}: ${roundError.message}`, 500);
     syncedRounds += 1;
 
     const entryStart = new Date(calendarEntry.startDate).getTime();
@@ -163,7 +178,7 @@ Deno.serve(async (request) => {
       const awayTeamId = teamByAbbreviation.get(mapTeam(away?.team?.abbreviation));
 
       if (!homeTeamId || !awayTeamId) {
-        return apiError("TEAM_MAPPING_FAILED", `Could not map ${away?.team?.abbreviation ?? "away"} at ${home?.team?.abbreviation ?? "home"}.`, 500);
+        return apiError("TEAM_MAPPING_FAILED", `Week ${week}: could not map ${away?.team?.abbreviation ?? "away"} at ${home?.team?.abbreviation ?? "home"}.`, 500);
       }
 
       const homeScore = home?.score === undefined ? null : Number(home.score);
@@ -185,8 +200,7 @@ Deno.serve(async (request) => {
         is_tie: isTie,
         last_synced_at: now.toISOString()
       }, { onConflict: "season_id,external_game_id" });
-
-      if (gameError) return apiError("GAME_UPSERT_FAILED", gameError.message, 500);
+      if (gameError) return apiError("GAME_UPSERT_FAILED", `Week ${week} game ${event.id}: ${gameError.message}`, 500);
       syncedGames += 1;
     }
   }
@@ -200,7 +214,6 @@ Deno.serve(async (request) => {
       .order("sequence_number", { ascending: true })
       .limit(1)
       .maybeSingle();
-
     if (nextRoundError) return apiError("CURRENT_ROUND_LOOKUP_FAILED", nextRoundError.message, 500);
     currentRoundId = nextRound?.id ?? null;
   }
@@ -210,9 +223,23 @@ Deno.serve(async (request) => {
       .from("seasons")
       .update({ current_round_id: currentRoundId, updated_at: now.toISOString() })
       .eq("id", season.id);
-
     if (currentRoundError) return apiError("CURRENT_ROUND_UPDATE_FAILED", currentRoundError.message, 500);
   }
 
-  return jsonResponse({ seasonYear: SEASON_YEAR, syncedRounds, syncedGames, currentRoundId });
+  return jsonResponse({ seasonYear: SEASON_YEAR, weeks, syncedRounds, syncedGames, currentRoundId });
+}
+
+Deno.serve(async (request) => {
+  if (request.method === "OPTIONS") return optionsResponse();
+  if (request.method !== "POST") return apiError("METHOD_NOT_ALLOWED", "Use POST.", 405);
+
+  const syncSecret = Deno.env.get("SYNC_SECRET");
+  if (syncSecret && authToken(request) !== syncSecret) return apiError("UNAUTHORIZED", "Invalid sync token.", 401);
+
+  try {
+    return await runSync(request);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return apiError("SYNC_FAILED", message, 500);
+  }
 });
