@@ -7,21 +7,48 @@ async function verifySaltedPin(pinHash: string, pin: string) {
   return (await sha256(`${salt}:${pin}`)) === expectedHash;
 }
 
+async function listActivePlayers(leagueSlug: string) {
+  const supabase = serviceClient();
+  const { data, error } = await supabase
+    .from("players")
+    .select("display_name, league:leagues!inner(slug)")
+    .eq("league.slug", leagueSlug)
+    .eq("active", true)
+    .order("display_name", { ascending: true });
+
+  if (error) return { error: apiError("PLAYERS_LOOKUP_FAILED", error.message, 500) };
+
+  return {
+    players: (data ?? []).map((player: any) => ({
+      displayName: player.display_name
+    }))
+  };
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return optionsResponse();
   if (request.method !== "POST") return apiError("METHOD_NOT_ALLOWED", "Use POST.", 405);
 
-  const { leagueSlug, displayName, playerId, pin } = await request.json().catch(() => ({}));
+  const { command, leagueSlug, displayName, playerId, pin } = await request.json().catch(() => ({}));
+  const league = String(leagueSlug ?? "").trim();
+
+  if (command === "list-players") {
+    if (!league) return apiError("MISSING_LEAGUE", "Choose a league.", 400);
+    const result = await listActivePlayers(league);
+    if ("error" in result) return result.error;
+    return jsonResponse(result);
+  }
+
   const loginName = String(displayName ?? playerId ?? "").trim();
   const loginPin = String(pin ?? "");
 
-  if (!leagueSlug || !loginName || !loginPin) {
+  if (!league || !loginName || !loginPin) {
     return apiError("MISSING_LOGIN", "Choose a player and enter a PIN.", 400);
   }
 
   const supabase = serviceClient();
   const { data: verifiedPlayer, error } = await supabase.rpc("verify_player_pin", {
-    league_slug_input: leagueSlug,
+    league_slug_input: league,
     display_name_input: loginName,
     pin_input: loginPin
   }).maybeSingle();
@@ -34,7 +61,7 @@ Deno.serve(async (request) => {
     const { data: fallbackPlayer, error: fallbackError } = await supabase
       .from("players")
       .select("id, display_name, is_admin, pin_hash, league:leagues!inner(slug)")
-      .eq("league.slug", leagueSlug)
+      .eq("league.slug", league)
       .eq("active", true)
       .ilike("display_name", loginName)
       .maybeSingle();

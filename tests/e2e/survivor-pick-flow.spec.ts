@@ -135,6 +135,14 @@ function createHarness() {
         }
 
         if (functionName === "player-login") {
+          if (body.command === "list-players") {
+            return route.fulfill({
+              status: 200,
+              contentType: "application/json",
+              body: JSON.stringify({ players: players.map((displayName) => ({ displayName })) })
+            });
+          }
+
           return route.fulfill({
             status: 200,
             contentType: "application/json",

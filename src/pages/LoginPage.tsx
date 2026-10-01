@@ -1,20 +1,46 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginPlayer } from "../services/auth";
+import { listLoginPlayers, loginPlayer } from "../services/auth";
 import { useAuth } from "../hooks/useAuth";
-
-const players = ["Mike", "Heather", "Chloe", "Sophia"];
 
 export function LoginPage() {
   const navigate = useNavigate();
   const auth = useAuth();
-  const [displayName, setDisplayName] = useState(players[0]);
+  const [players, setPlayers] = useState<string[]>([]);
+  const [displayName, setDisplayName] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loadingPlayers, setLoadingPlayers] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    setLoadingPlayers(true);
+    listLoginPlayers()
+      .then((result) => {
+        if (!active) return;
+        const names = result.players.map((player) => player.displayName);
+        setPlayers(names);
+        setDisplayName((current) => current && names.includes(current) ? current : names[0] ?? "");
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err instanceof Error ? err.message : "Unable to load players.");
+      })
+      .finally(() => {
+        if (active) setLoadingPlayers(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (!displayName) return;
+
     setLoading(true);
     setError(null);
 
@@ -38,9 +64,12 @@ export function LoginPage() {
           Player
           <select
             className="rounded-lg border border-slate-300 bg-white px-3 py-3"
+            disabled={loadingPlayers || !players.length}
             value={displayName}
             onChange={(event) => setDisplayName(event.target.value)}
           >
+            {loadingPlayers ? <option value="">Loading players...</option> : null}
+            {!loadingPlayers && !players.length ? <option value="">No players found</option> : null}
             {players.map((name) => (
               <option key={name} value={name}>
                 {name}
@@ -59,7 +88,10 @@ export function LoginPage() {
           />
         </label>
         {error ? <p className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p> : null}
-        <button className="rounded-lg bg-teal-700 px-4 py-3 font-bold text-white hover:bg-teal-800 disabled:opacity-60" disabled={loading}>
+        <button
+          className="rounded-lg bg-teal-700 px-4 py-3 font-bold text-white hover:bg-teal-800 disabled:opacity-60"
+          disabled={loading || loadingPlayers || !displayName}
+        >
           {loading ? "Signing in..." : "Sign In"}
         </button>
       </form>
