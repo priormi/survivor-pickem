@@ -33,14 +33,14 @@ function MatchupPickButton({
 }) {
   const teamName = `${team.city} ${team.name}`;
   const unavailable = disabled || !team.available;
-  const statusLabel = selected ? "Selected" : disabled ? "Locked" : team.used ? "Used previously" : !team.available ? "Started" : "Available";
+  const statusLabel = selected ? "Selected" : disabled ? "Locked" : team.used ? "Used previously" : team.started ? "Started" : "Available";
   const statusClass = selected
     ? "bg-teal-100 text-teal-800"
     : disabled
       ? "bg-slate-200 text-slate-600"
       : team.used
         ? "bg-amber-100 text-amber-800"
-        : !team.available
+        : team.started
           ? "bg-slate-200 text-slate-600"
           : "bg-green-100 text-green-800";
   const cardClass = selected

@@ -193,6 +193,42 @@ async function removeParticipant(supabase: any, leagueId: string, adminPlayerId:
   return await getAdminState(supabase, leagueId);
 }
 
+async function resetParticipantPin(supabase: any, leagueId: string, payload: Record<string, unknown>) {
+  const participantId = String(payload.participantId ?? "").trim();
+  const pin = String(payload.pin ?? "").trim();
+
+  if (!participantId) return { error: apiError("MISSING_PARTICIPANT", "Choose a participant.", 400) };
+  if (!/^\d{4,8}$/.test(pin)) return { error: apiError("INVALID_PIN", "PIN must be 4 to 8 digits.", 400) };
+
+  const { data: participant, error: participantError } = await supabase
+    .from("season_players")
+    .select("id, player_id, player:players(id, league_id, active)")
+    .eq("id", participantId)
+    .maybeSingle();
+
+  if (participantError) return { error: apiError("PARTICIPANT_LOOKUP_FAILED", participantError.message, 500) };
+  if (!participant) return { error: apiError("PARTICIPANT_NOT_FOUND", "Participant was not found.", 404) };
+
+  const participantPlayer = Array.isArray(participant.player) ? participant.player[0] : participant.player;
+  if (!participantPlayer || participantPlayer.league_id !== leagueId || participantPlayer.active === false) {
+    return { error: apiError("PARTICIPANT_NOT_FOUND", "Participant was not found.", 404) };
+  }
+
+  const salt = randomToken();
+  const now = new Date().toISOString();
+  const pinHash = `sha256:${salt}:${await sha256(`${salt}:${pin}`)}`;
+  const { error: playerUpdateError } = await supabase
+    .from("players")
+    .update({ pin_hash: pinHash, updated_at: now })
+    .eq("id", participantPlayer.id);
+
+  if (playerUpdateError) return { error: apiError("PIN_RESET_FAILED", playerUpdateError.message, 500) };
+
+  await supabase.from("player_sessions").update({ revoked_at: now }).eq("player_id", participantPlayer.id).is("revoked_at", null);
+
+  return await getAdminState(supabase, leagueId);
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return optionsResponse();
   if (request.method !== "POST") return apiError("METHOD_NOT_ALLOWED", "Use POST.", 405);
@@ -211,7 +247,9 @@ Deno.serve(async (request) => {
     ? await addParticipant(supabase, player.league_id, payload)
     : command === "remove-participant"
       ? await removeParticipant(supabase, player.league_id, player.id, payload)
-      : await getAdminState(supabase, player.league_id);
+      : command === "reset-pin"
+        ? await resetParticipantPin(supabase, player.league_id, payload)
+        : await getAdminState(supabase, player.league_id);
 
   if ("error" in result) return result.error;
   return jsonResponse(result.state);

@@ -130,10 +130,13 @@ Deno.serve(async (request) => {
     }
   }
   const availableTeams = (teams ?? []).filter((team) => !usedTeamIds.has(team.id) && !gameStartedTeamIds.has(team.id));
-  const availabilityByTeamId = new Map((teams ?? []).map((team) => [team.id, !usedTeamIds.has(team.id) && !gameStartedTeamIds.has(team.id)]));
   const matchups = (games ?? []).map((game) => {
     const homeTeam = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team;
     const awayTeam = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team;
+    const homeTeamUsed = usedTeamIds.has(homeTeam?.id);
+    const awayTeamUsed = usedTeamIds.has(awayTeam?.id);
+    const homeTeamStarted = gameStartedTeamIds.has(homeTeam?.id);
+    const awayTeamStarted = gameStartedTeamIds.has(awayTeam?.id);
 
     return {
       id: game.id,
@@ -141,13 +144,15 @@ Deno.serve(async (request) => {
       status: game.status,
       homeTeam: {
         ...homeTeam,
-        used: availabilityByTeamId.get(homeTeam?.id) === false,
-        available: availabilityByTeamId.get(homeTeam?.id) === true
+        used: homeTeamUsed,
+        started: homeTeamStarted,
+        available: !homeTeamUsed && !homeTeamStarted
       },
       awayTeam: {
         ...awayTeam,
-        used: availabilityByTeamId.get(awayTeam?.id) === false,
-        available: availabilityByTeamId.get(awayTeam?.id) === true
+        used: awayTeamUsed,
+        started: awayTeamStarted,
+        available: !awayTeamUsed && !awayTeamStarted
       }
     };
   });

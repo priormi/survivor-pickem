@@ -51,8 +51,8 @@ function createHarness() {
         id: `week-${week}-${awayTeam.id}-${homeTeam.id}`,
         kickoffAt: roundForWeek(week).deadlineAt,
         status: "SCHEDULED",
-        awayTeam: { ...awayTeam, used: used.has(awayTeam.id), available: !used.has(awayTeam.id) },
-        homeTeam: { ...homeTeam, used: used.has(homeTeam.id), available: !used.has(homeTeam.id) }
+        awayTeam: { ...awayTeam, used: used.has(awayTeam.id), started: false, available: !used.has(awayTeam.id) },
+        homeTeam: { ...homeTeam, used: used.has(homeTeam.id), started: false, available: !used.has(homeTeam.id) }
       };
     });
   }

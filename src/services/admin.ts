@@ -29,3 +29,7 @@ export function addParticipant(token: string, displayName: string, pin: string) 
 export function removeParticipant(token: string, participantId: string) {
   return callFunction<AdminState>("admin", { command: "remove-participant", payload: { participantId } }, token);
 }
+
+export function resetParticipantPin(token: string, participantId: string, pin: string) {
+  return callFunction<AdminState>("admin", { command: "reset-pin", payload: { participantId, pin } }, token);
+}

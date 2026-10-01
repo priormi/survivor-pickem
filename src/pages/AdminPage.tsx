@@ -1,7 +1,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { addParticipant, getAdminState, removeParticipant, type AdminState } from "../services/admin";
+import { addParticipant, getAdminState, removeParticipant, resetParticipantPin, type AdminState } from "../services/admin";
 import { formatCentralDateTime } from "../utils/dates";
 
 export function AdminPage() {
@@ -12,6 +12,8 @@ export function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [resettingPinId, setResettingPinId] = useState<string | null>(null);
+  const [resetPins, setResetPins] = useState<Record<string, string>>({});
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +66,32 @@ export function AdminPage() {
       setError(err instanceof Error ? err.message : "Unable to remove participant.");
     } finally {
       setRemovingId(null);
+    }
+  }
+
+  async function handleResetPin(participantId: string, name: string) {
+    if (!auth.token || resettingPinId) return;
+
+    const nextPin = resetPins[participantId] ?? "";
+    if (!/^\d{4,8}$/.test(nextPin)) {
+      setError("PIN must be 4 to 8 digits.");
+      setMessage(null);
+      return;
+    }
+
+    setResettingPinId(participantId);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const nextState = await resetParticipantPin(auth.token, participantId, nextPin);
+      setState(nextState);
+      setResetPins((current) => ({ ...current, [participantId]: "" }));
+      setMessage(`${name}'s PIN was reset.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to reset PIN.");
+    } finally {
+      setResettingPinId(null);
     }
   }
 
@@ -181,6 +209,37 @@ export function AdminPage() {
                       ) : null}
                     </div>
                   </div>
+                  <form
+                    className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      handleResetPin(participant.id, participant.displayName);
+                    }}
+                  >
+                    <label className="grid gap-1 text-sm font-semibold text-slate-700">
+                      New PIN
+                      <input
+                        className="w-32 rounded-lg border border-slate-300 px-3 py-2 font-normal text-slate-900"
+                        inputMode="numeric"
+                        maxLength={8}
+                        minLength={4}
+                        onChange={(event) => {
+                          const value = event.target.value.replace(/\D/g, "");
+                          setResetPins((current) => ({ ...current, [participant.id]: value }));
+                        }}
+                        placeholder="4-8 digits"
+                        type="password"
+                        value={resetPins[participant.id] ?? ""}
+                      />
+                    </label>
+                    <button
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+                      disabled={resettingPinId === participant.id || (resetPins[participant.id] ?? "").length < 4}
+                      type="submit"
+                    >
+                      {resettingPinId === participant.id ? "Resetting..." : "Reset PIN"}
+                    </button>
+                  </form>
                   {confirmRemoveId === participant.id ? (
                     <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
                       <p className="font-semibold text-red-800">Are you sure you want to remove {participant.displayName}?</p>

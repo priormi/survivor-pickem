@@ -98,6 +98,7 @@ export interface PickOptionsRound {
 
 export interface MatchupTeam extends Team {
   used: boolean;
+  started: boolean;
   available: boolean;
 }
 
